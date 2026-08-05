@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>YourTube Shorts</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#F2F2F7"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Shorts"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+  <meta name="monetag" content="e7668bbe2bdc91ed1fa74b976b4cbb03">
+  <!-- AdSense paused while a non-Google ad network is in use — re-enable this tag when AdSense is approved -->
+  <!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2906372856070467" crossorigin="anonymous"></script> -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:#F2F2F7;--surface:rgba(255,255,255,0.72);--surface2:rgba(255,255,255,0.55);--surface3:rgba(255,255,255,0.35);
+      --red:#E8192C;--red2:#C0001F;--red-glow:rgba(232,25,44,0.18);
+      --white:#000000;--muted:#000000;--muted2:#000000;
+      --border:var(--red);--border2:var(--red2);
+      --glass-blur:blur(18px) saturate(1.6);
+      --glass-border:var(--red);
+      --font:'Inter',sans-serif;--nav-h:52px;--bottom-h:62px;
+      --green:#16a34a;--gold:#d97706;--blue:#2563eb;
+    }
+    html,body{height:100%;width:100%;background:var(--bg);color:var(--white);font-family:var(--font);overflow:hidden;}
+    ::-webkit-scrollbar{width:3px;}
+    ::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:3px;}
+
+    /* ── LOADER ── */
+    .full-loader{position:fixed;inset:0;background:rgba(242,242,247,0.96);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:999;}
+    .full-loader.hidden{display:none;}
+    .loader-logo{font-size:26px;font-weight:900;letter-spacing:-1px;}
+    .loader-logo span{color:var(--red);}
+    .spinner{width:30px;height:30px;border:3px solid var(--surface2);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* ── TOP NAV ── */
+    .top-nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:rgba(242,242,247,0.82);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);}
+    .top-nav-logo{font-size:16px;font-weight:900;letter-spacing:-0.5px;}
+    .top-nav-logo span{color:var(--red);}
+    .top-nav-tabs{display:flex;gap:18px;}
+    .top-nav-tab{font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;padding-bottom:2px;border-bottom:2px solid transparent;transition:all .2s;}
+    .top-nav-tab.active{color:var(--white);border-bottom-color:var(--white);}
+    .top-nav-right{display:flex;gap:2px;}
+    .nav-icon-btn{background:none;border:none;color:var(--white);cursor:pointer;padding:8px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;transition:background .2s;}
+    .nav-icon-btn:hover{background:var(--surface2);}
+    .notif-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;background:var(--red);border-radius:50%;display:none;}
+    .notif-dot.on{display:block;}
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--bottom-h);z-index:50;display:flex;background:rgba(242,242,247,0.88);border-top:1px solid var(--glass-border);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);}
+    .bottom-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;color:var(--muted);transition:color .2s;border:none;background:none;font-family:var(--font);padding:0;}
+    .bottom-tab.active{color:var(--white);}
+    .bottom-tab-label{font-size:10px;font-weight:600;letter-spacing:0.2px;}
+    .upload-fab{width:46px;height:46px;background:var(--red);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px var(--red-glow);position:relative;top:-6px;}
+
+    /* ── PAGES ── */
+    .page{position:fixed;inset:0;top:var(--nav-h);bottom:var(--bottom-h);overflow-y:auto;display:none;}
+    .page.active{display:block;}
+    .page::-webkit-scrollbar{display:none;}
+
+    /* ══════════ FEED ══════════ */
+    #feedPage{overflow:hidden;}
+    .feed-scroll{position:absolute;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;}
+    .feed-scroll::-webkit-scrollbar{display:none;}
+    .short-slide{width:100%;scroll-snap-align:start;scroll-snap-stop:always;display:flex;align-items:center;justify-content:center;position:relative;background:#000;flex-shrink:0;}
+    .video-wrap{position:relative;height:100%;width:100%;background:#000;overflow:hidden;}
+    .video-thumb{width:100%;height:100%;object-fit:fill;position:absolute;inset:0;}
+    .video-gradient{position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,0.92) 100%);pointer-events:none;}
+    .play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:6;}
+    .play-overlay.hidden{display:none;}
+    .play-circle{width:62px;height:62px;background:rgba(0,0,0,0.55);border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.22);backdrop-filter:blur(6px);}
+    .video-el{position:absolute;inset:0;width:100%;height:100%;border:none;object-fit:fill;background:#000;}
+    .video-wrap [id^="ytp-"]{position:absolute;inset:0;width:100%;height:100%;}
+    .video-wrap [id^="ytp-"] iframe{width:100%!important;height:100%!important;position:absolute;inset:0;pointer-events:none;}
+    .yt-swipe-cap{position:absolute;inset:0;z-index:4;background:transparent;}
+    .short-info{position:absolute;bottom:0;left:0;right:54px;padding:10px 12px 18px;z-index:5;}
+    .short-channel-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+    .short-avatar{width:32px;height:32px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.28);background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;overflow:hidden;}
+    .short-avatar img{width:100%;height:100%;object-fit:cover;}
+    .short-channel-name{font-size:13px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .short-sub-btn{background:var(--white);color:#000;border:none;border-radius:20px;font-family:var(--font);font-size:11px;font-weight:700;padding:5px 11px;cursor:pointer;flex-shrink:0;transition:all .2s;}
+    .short-sub-btn.subbed{background:transparent;color:var(--white);border:1.5px solid rgba(255,255,255,0.35);}
+    .short-title{font-size:13px;line-height:1.4;color:rgba(255,255,255,0.92);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .short-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+    .short-tag{font-size:12px;color:#ff6666;font-weight:600;cursor:pointer;}
+    .action-bar{position:absolute;right:0;bottom:14px;width:54px;display:flex;flex-direction:column;align-items:center;gap:19px;z-index:5;}
+    .action-item{display:flex;flex-direction:column;align-items:center;gap:5px;}
+    .action-btn{width:30px;height:30px;background:none;border:none;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .18s;filter:drop-shadow(0 1px 3px rgba(0,0,0,.85));}
+    .action-btn:active{transform:scale(1.15);}
+    .action-count{font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.9);}
+    .heart-burst{position:absolute;pointer-events:none;font-size:72px;opacity:0;left:50%;top:45%;transform:translate(-50%,-50%) scale(0.3);transition:all .14s;z-index:20;}
+    .heart-burst.pop{opacity:1;transform:translate(-50%,-50%) scale(1.15);}
+    .heart-burst.fade{opacity:0;transform:translate(-50%,-80%) scale(1.4);}
+
+    /* ── AD SLIDE ── */
+
+    /* ── COMMENTS ── */
+    .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:98;display:none;}
+    .sheet-overlay.on{display:block;}
+    .comments-sheet{position:fixed;bottom:0;left:0;right:0;height:74vh;background:rgba(242,242,247,0.92);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:20px 20px 0 0;border-top:1px solid var(--glass-border);z-index:99;transform:translateY(100%);transition:transform .32s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;}
+    .comments-sheet.open{transform:translateY(0);}
+    .drag-handle{width:36px;height:4px;background:var(--surface3);border-radius:2px;margin:10px auto 0;flex-shrink:0;}
+    .sheet-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .sheet-hdr-title{font-size:14px;font-weight:700;}
+    .sheet-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;}
+    .comments-list{flex:1;overflow-y:auto;padding:10px 14px;}
+    .comments-list::-webkit-scrollbar{display:none;}
+    .comment-item{display:flex;gap:9px;margin-bottom:14px;}
+    .c-avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+    .c-body{flex:1;}
+    .c-user{font-size:12px;font-weight:700;margin-bottom:2px;}
+    .c-text{font-size:13px;line-height:1.4;color:rgba(255,255,255,0.85);}
+    .c-meta{display:flex;gap:10px;margin-top:3px;}
+    .c-time{font-size:11px;color:var(--muted);}
+    .comments-input-row{display:flex;gap:8px;padding:10px 14px 28px;border-top:1px solid var(--border);flex-shrink:0;}
+    .c-input{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:22px;color:var(--white);font-family:var(--font);font-size:13px;padding:9px 14px;outline:none;transition:border-color .2s;}
+    .c-input:focus{border-color:var(--red);}
+    .c-send{background:var(--red);border:none;border-radius:50%;width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+    /* ══════════ SEARCH OVERLAY (replaces the old Explore page) ══════════ */
+    .search-overlay{position:fixed;inset:0;background:var(--bg);z-index:90;display:none;flex-direction:column;}
+    .search-overlay.open{display:flex;}
+    .search-overlay-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .search-back-btn{background:none;border:none;color:var(--white);cursor:pointer;padding:8px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .search-back-btn:hover{background:var(--surface2);}
+    .search-overlay-body{flex:1;overflow-y:auto;padding:14px;}
+    .search-overlay-body::-webkit-scrollbar{display:none;}
+    .search-bar{flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:0 12px;}
+    .search-bar input{flex:1;background:none;border:none;color:var(--white);font-family:var(--font);font-size:14px;padding:11px 0;outline:none;}
+    .search-bar input::placeholder{color:var(--muted2);}
+    .search-go{padding:11px 16px;background:var(--red);border:none;border-radius:12px;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+    .section-title{font-size:15px;font-weight:800;margin-bottom:10px;}
+
+    /* search results */
+    .result-video-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+    .result-thumb{width:80px;height:112px;border-radius:8px;object-fit:cover;background:var(--surface2);flex-shrink:0;}
+    .result-info{flex:1;min-width:0;}
+    .result-title{font-size:13px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+    .result-channel{font-size:12px;color:var(--muted);margin-top:4px;}
+    .result-views{font-size:11px;color:var(--muted2);margin-top:2px;}
+    .result-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:1px 6px;border-radius:5px;margin-top:4px;background:var(--surface2);color:var(--muted);}
+    .yt-ch-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+    .yt-ch-thumb{width:44px;height:44px;border-radius:50%;object-fit:cover;background:var(--surface2);flex-shrink:0;}
+    .yt-ch-info{flex:1;}
+    .yt-ch-name{font-size:13px;font-weight:700;}
+    .yt-ch-sub-count{font-size:11px;color:var(--muted);margin-top:1px;}
+    .yt-ch-btn{padding:6px 14px;background:var(--red);border:none;border-radius:20px;font-family:var(--font);font-size:12px;font-weight:700;color:#fff;cursor:pointer;flex-shrink:0;}
+    .yt-ch-btn.subbed{background:var(--surface2);color:var(--white);}
+
+    /* ══════════ UPLOAD ══════════ */
+    #uploadPage{padding:14px 14px 20px;}
+    .page-title{font-size:18px;font-weight:800;margin-bottom:14px;}
+    .upload-area{border:2px dashed var(--border2);border-radius:14px;padding:36px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;transition:all .2s;margin-bottom:14px;text-align:center;}
+    .upload-area:hover,.upload-area.drag{border-color:var(--red);background:var(--red-glow);}
+    .upload-icon{width:60px;height:60px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;}
+    .upload-preview{width:100%;border-radius:12px;overflow:hidden;background:#000;margin-bottom:14px;display:none;position:relative;}
+    .upload-preview video{width:100%;max-height:240px;object-fit:contain;}
+    .remove-preview{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.7);border:none;border-radius:50%;width:28px;height:28px;color:#fff;cursor:pointer;font-size:13px;}
+    .field{margin-bottom:11px;}
+    .field-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;display:block;}
+    .field-input{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:11px;color:var(--white);font-family:var(--font);font-size:14px;padding:10px 12px;outline:none;transition:border-color .2s;}
+    .field-input:focus{border-color:var(--red);}
+    .field-input::placeholder{color:var(--muted2);}
+    textarea.field-input{resize:vertical;min-height:68px;}
+    .privacy-row{display:flex;gap:7px;}
+    .p-opt{flex:1;padding:9px 4px;background:var(--surface);border:1.5px solid var(--border);border-radius:9px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;color:var(--muted);}
+    .p-opt.on{border-color:var(--red);color:var(--white);background:var(--red-glow);}
+    .effects-row{display:flex;gap:7px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;}
+    .effects-row::-webkit-scrollbar{display:none;}
+    .fx-chip{flex-shrink:0;padding:7px 13px;background:var(--surface);border:1.5px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;color:var(--muted);}
+    .fx-chip.on{border-color:var(--red);color:var(--white);background:var(--red-glow);}
+    .censor-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;margin:6px 0;}
+    .censor-ok{background:rgba(34,197,94,0.12);color:var(--green);}
+    .censor-warn{background:rgba(239,68,68,0.12);color:#ef4444;}
+    .censor-checking{background:var(--surface2);color:var(--muted);}
+    .prog-wrap{display:none;margin-top:10px;}
+    .prog-track{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+    .prog-fill{height:100%;background:var(--red);border-radius:2px;width:0%;transition:width .35s;}
+    .prog-text{font-size:11px;color:var(--muted);margin-top:5px;text-align:center;}
+    .submit-btn{width:100%;padding:14px;background:var(--red);color:#fff;border:none;border-radius:12px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;transition:opacity .2s;}
+    .submit-btn:disabled{opacity:.38;cursor:not-allowed;}
+
+
+    /* ══════════ PROFILE ══════════ */
+    #profilePage{padding-bottom:20px;}
+    .profile-banner{width:100%;height:110px;background:linear-gradient(120deg,var(--red),var(--red2));position:relative;}
+    .profile-banner-edit{position:absolute;bottom:8px;right:10px;background:rgba(0,0,0,0.45);border:none;border-radius:20px;padding:5px 11px;font-size:11px;color:#fff;font-family:var(--font);font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;}
+    .profile-hdr{padding:0 14px 18px;display:flex;flex-direction:column;align-items:center;text-align:center;margin-top:-38px;}
+    .p-avatar-wrap{position:relative;margin-bottom:10px;}
+    .p-avatar{width:84px;height:84px;border-radius:50%;background:var(--surface2);border:3px solid var(--surface3);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;overflow:hidden;}
+    .p-avatar img{width:100%;height:100%;object-fit:cover;}
+    .p-avatar-edit{position:absolute;bottom:0;right:0;width:24px;height:24px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid var(--bg);}
+    .p-name{font-size:19px;font-weight:800;margin-bottom:1px;}
+    .p-handle{font-size:13px;color:var(--muted);margin-bottom:8px;}
+    .p-bio{font-size:13px;color:rgba(255,255,255,0.68);line-height:1.5;margin-bottom:12px;}
+    .p-stats{display:flex;gap:22px;margin-bottom:14px;}
+    .p-stat{display:flex;flex-direction:column;align-items:center;gap:1px;}
+    .p-stat-n{font-size:17px;font-weight:800;}
+    .p-stat-l{font-size:11px;color:var(--muted);}
+    .p-actions{display:flex;gap:7px;width:100%;flex-wrap:wrap;}
+    .p-btn{flex:1;padding:9px 6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--white);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:background .2s;white-space:nowrap;}
+    .p-btn:hover{background:var(--surface3);}
+    .p-btn.danger{background:transparent;border-color:rgba(255,0,0,0.28);color:#ff4444;}
+    .p-tabs{display:flex;border-bottom:1px solid var(--border);}
+    .p-tab{flex:1;padding:11px 4px;text-align:center;cursor:pointer;color:var(--muted);font-size:11px;font-weight:600;border-bottom:2px solid transparent;transition:all .2s;}
+    .p-tab.active{color:var(--white);border-bottom-color:var(--white);}
+    .vid-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px;}
+    .vid-item{aspect-ratio:9/16;background:var(--surface2);position:relative;cursor:pointer;overflow:hidden;}
+    .vid-item img{width:100%;height:100%;object-fit:cover;}
+    .vid-views{position:absolute;bottom:3px;left:3px;font-size:9px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.9);display:flex;align-items:center;gap:2px;}
+    .earnings-card{background:linear-gradient(135deg,#1a0800,#2d1200);border:1px solid rgba(245,158,11,0.18);border-radius:14px;padding:14px;margin:10px 14px 0;}
+    .earn-amount{font-size:26px;font-weight:900;color:var(--gold);}
+    .earn-label{font-size:11px;color:var(--muted);margin-top:2px;}
+    .earn-row{display:flex;gap:8px;margin-top:10px;}
+    .earn-stat{flex:1;background:rgba(0,0,0,0.3);border-radius:9px;padding:8px;text-align:center;}
+    .earn-stat-v{font-size:13px;font-weight:700;}
+    .earn-stat-l{font-size:9px;color:var(--muted);margin-top:1px;}
+
+    /* ══════════ SETTINGS PANEL ══════════ */
+    .settings-panel{position:fixed;inset:0;top:var(--nav-h);background:rgba(242,242,247,0.96);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);z-index:60;transform:translateX(100%);transition:transform .32s cubic-bezier(.32,.72,0,1);overflow-y:auto;}
+    .settings-panel.open{transform:translateX(0);}
+    .settings-hdr{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);}
+    .settings-back{background:none;border:none;color:var(--white);cursor:pointer;display:flex;align-items:center;gap:6px;font-family:var(--font);font-size:14px;font-weight:600;}
+    .settings-section{padding:14px 16px 0;}
+    .settings-section-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+    .settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);}
+    .settings-row:last-child{border-bottom:none;}
+    .settings-row-left{display:flex;flex-direction:column;gap:2px;}
+    .settings-row-label{font-size:14px;font-weight:600;}
+    .settings-row-sub{font-size:12px;color:var(--muted);}
+    .toggle{position:relative;width:42px;height:24px;cursor:pointer;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .toggle-track{position:absolute;inset:0;background:var(--surface3);border-radius:24px;transition:.3s;}
+    .toggle-track::before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;}
+    .toggle input:checked+.toggle-track{background:var(--red);}
+    .toggle input:checked+.toggle-track::before{transform:translateX(18px);}
+
+    /* ══════════ AUTH SHEET ══════════ */
+    .auth-sheet{position:fixed;bottom:0;left:0;right:0;background:rgba(242,242,247,0.95);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:22px 22px 0 0;border-top:1px solid var(--glass-border);z-index:100;transform:translateY(100%);transition:transform .32s cubic-bezier(.32,.72,0,1);padding:0 18px 40px;}
+    .auth-sheet.open{transform:translateY(0);}
+    .auth-sheet-drag{width:36px;height:4px;background:var(--surface3);border-radius:2px;margin:12px auto 20px;}
+    .auth-sheet-logo{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+    .auth-sheet-logo-icon{width:42px;height:42px;background:var(--red);border-radius:12px;display:flex;align-items:center;justify-content:center;}
+    .auth-sheet-title{font-size:22px;font-weight:900;letter-spacing:-0.5px;}
+    .auth-sheet-title span{color:var(--red);}
+    .auth-sheet-tabs{display:flex;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:16px;}
+    .a-tab{flex:1;padding:8px;text-align:center;font-size:13px;font-weight:600;border-radius:7px;cursor:pointer;color:var(--muted);transition:all .2s;}
+    .a-tab.active{background:var(--surface3);color:var(--white);}
+    .a-form{display:flex;flex-direction:column;gap:10px;}
+    .a-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:11px;color:var(--white);font-family:var(--font);font-size:14px;padding:12px 14px;outline:none;transition:border-color .2s;}
+    .a-input:focus{border-color:var(--red);}
+    .a-input::placeholder{color:var(--muted2);}
+    .a-btn{width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:11px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s;}
+    .a-btn:disabled{opacity:.38;cursor:not-allowed;}
+    .a-divider{display:flex;align-items:center;gap:10px;color:var(--muted2);font-size:12px;}
+    .a-divider::before,.a-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+    .a-google{width:100%;padding:11px;background:var(--surface2);color:var(--white);border:1.5px solid var(--border2);border-radius:11px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:background .2s;}
+    .a-google:hover{background:var(--surface3);}
+    .a-error{color:#ff4444;font-size:12px;text-align:center;min-height:14px;}
+    .a-forgot{font-size:12px;color:var(--red);cursor:pointer;text-align:right;}
+    .a-remember{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);}
+    .a-remember input{accent-color:var(--red);}
+
+    /* FORGOT PW */
+    .forgot-overlay{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:22px 22px 0 0;z-index:101;transform:translateY(100%);transition:transform .32s cubic-bezier(.32,.72,0,1);padding:0 18px 40px;}
+    .forgot-overlay.open{transform:translateY(0);}
+
+    /* MODALS */
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:150;display:none;align-items:flex-end;}
+    .modal-bg.open{display:flex;}
+    .modal-box{width:100%;background:var(--surface);border-radius:20px 20px 0 0;padding:18px 16px 40px;display:flex;flex-direction:column;gap:11px;max-height:88vh;overflow-y:auto;}
+    .modal-title{font-size:16px;font-weight:800;margin-bottom:2px;}
+    .m-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:11px;color:var(--white);font-family:var(--font);font-size:14px;padding:11px 13px;outline:none;transition:border-color .2s;}
+    .m-input:focus{border-color:var(--red);}
+    .m-save{width:100%;padding:13px;background:var(--red);color:#fff;border:none;border-radius:11px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;}
+    .m-cancel{width:100%;padding:12px;background:var(--surface2);color:var(--white);border:none;border-radius:11px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;}
+
+    /* NOTIF PANEL */
+    .notif-panel{position:fixed;top:var(--nav-h);right:0;width:min(310px,100vw);bottom:var(--bottom-h);background:var(--surface);border-left:1px solid var(--border);z-index:55;transform:translateX(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;}
+    .notif-panel.open{transform:translateX(0);}
+    .notif-hdr{padding:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .notif-list{flex:1;overflow-y:auto;padding:8px;}
+    .notif-list::-webkit-scrollbar{display:none;}
+    .n-item{display:flex;gap:9px;padding:9px;border-radius:9px;cursor:pointer;transition:background .2s;}
+    .n-item:hover{background:var(--surface2);}
+    .n-item.unread{background:rgba(255,0,0,0.07);}
+    .n-avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;}
+    .n-text{font-size:12px;line-height:1.4;flex:1;}
+    .n-time{font-size:10px;color:var(--muted);margin-top:2px;}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,0.96);color:var(--white);border:1px solid var(--border);border-radius:22px;padding:9px 18px;font-size:13px;font-weight:500;z-index:200;opacity:0;pointer-events:none;transition:opacity .28s;white-space:nowrap;max-width:88vw;}
+    .toast.on{opacity:1;}
+
+    /* EMPTY */
+    .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:50px 20px;color:var(--muted);text-align:center;}
+    .empty p{font-size:13px;}
+    .btn-red{padding:10px 22px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;}
+
+    /* USERNAME SCREEN */
+    #usernameScreen{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;padding:24px;z-index:80;}
+    #usernameScreen.active{display:flex;}
+    .u-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 22px;display:flex;flex-direction:column;gap:11px;}
+    .avail-ok{color:var(--green);font-size:12px;}
+    .avail-no{color:#ff4444;font-size:12px;}
+
+    /* ONBOARD SCREEN */
+    #onboardScreen{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:80;overflow:hidden;}
+    #onboardScreen.active{display:flex;}
+    .ob-inner{flex:1;overflow-y:auto;padding:56px 16px 110px;}
+    .ob-hdr{text-align:center;margin-bottom:24px;}
+    .ob-hdr h2{font-size:22px;font-weight:900;}
+    .ob-hdr p{color:var(--muted);font-size:13px;margin-top:5px;}
+    .interest-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;}
+    .int-item{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;transition:all .18s;text-align:center;}
+    .int-item.on{border-color:var(--red);background:var(--red-glow);}
+    .int-emoji{font-size:26px;}
+    .int-label{font-size:12px;font-weight:600;}
+    .ob-footer{position:fixed;bottom:0;left:0;right:0;padding:14px 18px 28px;background:linear-gradient(transparent,var(--bg) 40%);display:flex;flex-direction:column;align-items:center;gap:7px;}
+    .ob-btn{width:100%;max-width:400px;padding:13px;background:var(--red);color:#fff;border:none;border-radius:11px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;}
+    .ob-btn:disabled{opacity:.32;cursor:not-allowed;}
+  </style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div class="full-loader" id="fullLoader">
+  <div class="loader-logo"><span>Your</span>Tube Shorts</div>
+  <div class="spinner"></div>
+  <p style="position:absolute;bottom:28px;left:20px;right:20px;text-align:center;font-size:10px;line-height:1.5;color:var(--muted2);">Independently operated. Not produced, sponsored, or endorsed by YouTube LLC or Google LLC. "YouTube" and "Shorts" are trademarks of Google LLC, referenced only to describe content sourced via YouTube's public API.</p>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- SHEET OVERLAY -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeComments()"></div>
+
+<!-- ══ USERNAME SETUP ══ -->
+<div id="usernameScreen">
+  <div class="u-card">
+    <h2 style="font-size:21px;font-weight:800;">Pick your username</h2>
+    <p style="color:var(--muted);font-size:13px;line-height:1.5;">Others will mention you with this.</p>
+    <div style="position:relative">
+      <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;font-weight:600">@</span>
+      <input class="a-input" id="unInput" type="text" placeholder="yourcoolname" autocomplete="off" oninput="checkUN()" style="padding-left:28px;"/>
+    </div>
+    <p id="unAvail" style="font-size:12px;min-height:14px;"></p>
+    <button class="a-btn" id="unBtn" onclick="saveUN()" disabled>Continue →</button>
+  </div>
+</div>
+
+<!-- ══ ONBOARDING ══ -->
+<div id="onboardScreen">
+  <div class="ob-inner">
+    <div class="ob-hdr"><h2>What do you love? 🎯</h2><p>Pick at least 3 to personalize your feed</p></div>
+    <div class="interest-grid" id="interestGrid"></div>
+  </div>
+  <div class="ob-footer">
+    <p style="font-size:12px;color:var(--muted)" id="obCount">0 selected</p>
+    <button class="ob-btn" id="obBtn" onclick="saveInterests()" disabled>Start Watching →</button>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<nav class="top-nav">
+  <div class="top-nav-logo"><span>Short</span>s</div>
+  <div class="top-nav-tabs">
+    <div class="top-nav-tab" id="tabFollowing" onclick="switchFeedTab('following')">Subscribed</div>
+    <div class="top-nav-tab active" id="tabFYP" onclick="switchFeedTab('fyp')">For You</div>
+  </div>
+  <div class="top-nav-right">
+    <button class="nav-icon-btn" onclick="openSearchOverlay()">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+    <button class="nav-icon-btn" onclick="toggleNotif()">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="notif-dot" id="notifDot"></span>
+    </button>
+    <button class="nav-icon-btn" onclick="openSettings()">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    </button>
+  </div>
+</nav>
+
+<!-- PAGES -->
+<div class="page active" id="feedPage"><div class="feed-scroll" id="feedScroll"></div></div>
+
+<!-- SEARCH OVERLAY (replaces the old Explore page — reachable via the search button in the top nav) -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-overlay-top">
+    <button class="search-back-btn" onclick="closeSearchOverlay()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+    </button>
+    <div class="search-bar">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="Search Shorts or channels..." oninput="onSearchInput()" onkeydown="if(event.key==='Enter')runSearch()"/>
+      <button id="searchClearBtn" onclick="clearSearchInput()" style="display:none;background:none;border:none;color:#888;cursor:pointer;padding:4px;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <button class="search-go" onclick="runSearch()">Search</button>
+  </div>
+  <div class="search-overlay-body" id="searchOverlayBody">
+    <div class="empty"><p>Search for Shorts or YouTube channels</p></div>
+  </div>
+</div>
+
+<div class="page" id="uploadPage">
+  <div class="page-title">Upload Short</div>
+  <div class="upload-area" id="uploadArea" onclick="pickFile()" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave()">
+    <div class="upload-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+    <p style="font-size:14px;font-weight:700">Tap to select video</p>
+    <p style="font-size:12px;color:var(--muted)">MP4, MOV up to 500MB · Vertical</p>
+  </div>
+  <input type="file" id="fileInput" accept="video/*" style="display:none" onchange="onFilePicked(event)"/>
+  <div class="upload-preview" id="uploadPreview">
+    <video id="previewVid" controls></video>
+    <button class="remove-preview" onclick="clearPreview()">✕</button>
+  </div>
+  <div class="field" id="thumbField" style="display:none">
+    <label class="field-label">Thumbnail</label>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img id="thumbPreview" style="width:64px;height:114px;object-fit:cover;border-radius:8px;background:var(--surface2)"/>
+      <div style="flex:1">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Auto-captured from your video — or upload your own</p>
+        <button class="p-btn" style="width:auto;display:inline-block;padding:8px 16px" onclick="document.getElementById('thumbInput').click()">Upload custom</button>
+      </div>
+    </div>
+    <input type="file" id="thumbInput" accept="image/*" style="display:none" onchange="onThumbPicked(event)"/>
+  </div>
+  <div id="effectsWrap" style="display:none">
+    <div class="field-label" style="margin-bottom:7px">🎨 AI Video Effects</div>
+    <div class="effects-row" id="effectsRow"></div>
+  </div>
+  <div class="field"><label class="field-label">Title *</label><input class="field-input" id="upTitle" type="text" placeholder="Catchy title..." maxlength="100" oninput="triggerCensor()"/></div>
+  <div class="field"><label class="field-label">Description</label><textarea class="field-input" id="upDesc" placeholder="What's this about?" maxlength="500" oninput="triggerCensor()"></textarea></div>
+  <div id="censorStatus"></div>
+  <div class="field"><label class="field-label">Hashtags</label><input class="field-input" id="upTags" type="text" placeholder="#funny #viral #shorts"/></div>
+  <div class="field"><label class="field-label">Category</label>
+    <select class="field-input" id="upCat" style="cursor:pointer">
+      <option value="">Select category</option>
+      <option>Gaming</option><option>Music</option><option>Comedy</option><option>Cooking</option>
+      <option>Tech</option><option>Sports</option><option>Fashion</option><option>Education</option>
+      <option>Travel</option><option>Art</option><option>Fitness</option><option>News</option>
+    </select>
+  </div>
+  <div class="field"><label class="field-label">Channel</label>
+    <select class="field-input" id="upChannel" style="cursor:pointer"><option value="">Profile only</option></select>
+  </div>
+  <div class="field"><label class="field-label">Privacy</label>
+    <div class="privacy-row">
+      <div class="p-opt on" onclick="setPvt('public',this)">🌍 Public</div>
+      <div class="p-opt" onclick="setPvt('followers',this)">👥 Followers</div>
+      <div class="p-opt" onclick="setPvt('private',this)">🔒 Private</div>
+    </div>
+  </div>
+  <div class="prog-wrap" id="progWrap"><div class="prog-track"><div class="prog-fill" id="progFill"></div></div><p class="prog-text" id="progText"></p></div>
+  <button class="submit-btn" id="submitBtn" onclick="doUpload()">🚀 Publish Short</button>
+</div>
+
+<div class="page" id="profilePage">
+  <div id="profileContent"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="bottom-tab active" id="bnHome" onclick="goPage('feed')">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+    <span class="bottom-tab-label">Home</span>
+  </button>
+  <button class="bottom-tab" id="bnUpload" onclick="goPage('upload')" style="position:relative;top:0">
+    <div class="upload-fab"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+  </button>
+  <button class="bottom-tab" id="bnProfile" onclick="goPage('profile')">
+    <span id="bnProfileIcon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+    <span class="bottom-tab-label">You</span>
+  </button>
+</nav>
+
+
+<!-- AUTH SHEET (slides up from profile tab) -->
+<div class="sheet-overlay" id="authOverlay" onclick="closeAuthSheet()" style="z-index:99"></div>
+<div class="auth-sheet" id="authSheet">
+  <div class="auth-sheet-drag"></div>
+  <div class="auth-sheet-logo">
+    <div class="auth-sheet-logo-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg></div>
+    <div class="auth-sheet-title"><span>Your</span>Tube Shorts</div>
+  </div>
+  <div class="auth-sheet-tabs">
+    <div class="a-tab active" id="aTabLogin" onclick="switchAuth('login')">Sign In</div>
+    <div class="a-tab" id="aTabSignup" onclick="switchAuth('signup')">Sign Up</div>
+  </div>
+  <!-- LOGIN -->
+  <div class="a-form" id="loginForm">
+    <input class="a-input" id="loginEmail" type="email" placeholder="Email" autocomplete="email"/>
+    <input class="a-input" id="loginPass" type="password" placeholder="Password"/>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <label class="a-remember"><input type="checkbox" id="rememberMe" checked/> Remember me</label>
+      <span class="a-forgot" onclick="openForgot()">Forgot password?</span>
+    </div>
+    <p class="a-error" id="loginErr"></p>
+    <button class="a-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="a-divider">or</div>
+    <button class="a-google" onclick="doGoogle()">
+      <svg width="17" height="17" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+  </div>
+  <!-- SIGNUP -->
+  <div class="a-form" id="signupForm" style="display:none">
+    <input class="a-input" id="signupEmail" type="email" placeholder="Email" autocomplete="email"/>
+    <input class="a-input" id="signupPass" type="password" placeholder="Password (min 6)"/>
+    <input class="a-input" id="signupConfirm" type="password" placeholder="Confirm password"/>
+    <p class="a-error" id="signupErr"></p>
+    <button class="a-btn" id="signupBtn" onclick="doSignup()">Create Account</button>
+    <div class="a-divider">or</div>
+    <button class="a-google" onclick="doGoogle()">
+      <svg width="17" height="17" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD SHEET -->
+<div class="sheet-overlay" id="forgotOverlay" onclick="closeForgot()" style="z-index:100"></div>
+<div class="forgot-overlay" id="forgotSheet">
+  <div class="auth-sheet-drag"></div>
+  <h2 style="font-size:20px;font-weight:800;margin-bottom:6px">Reset Password</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px">We'll send a reset link to your email.</p>
+  <input class="a-input" id="forgotEmail" type="email" placeholder="Your email" style="margin-bottom:10px"/>
+  <p class="a-error" id="forgotErr" style="margin-bottom:8px"></p>
+  <button class="a-btn" onclick="doForgot()">Send Reset Link</button>
+  <button class="m-cancel" onclick="closeForgot()" style="margin-top:8px">Cancel</button>
+</div>
+
+<!-- COMMENTS SHEET -->
+<div class="comments-sheet" id="commentsSheet">
+  <div class="drag-handle"></div>
+  <div class="sheet-hdr">
+    <span class="sheet-hdr-title">Comments <span id="commentCount" style="color:var(--muted);font-weight:400"></span></span>
+    <button class="sheet-close" onclick="closeComments()">×</button>
+  </div>
+  <div class="comments-list" id="commentsList"></div>
+  <div class="comments-input-row" id="commentInputRow">
+    <input class="c-input" id="commentInput" placeholder="Add a comment..." maxlength="300" onkeydown="if(event.key==='Enter')postComment()"/>
+    <button class="c-send" onclick="postComment()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg></button>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-hdr">
+    <button class="settings-back" onclick="closeSettings()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+      Settings
+    </button>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Playback</div>
+    <div class="settings-row">
+      <div class="settings-row-left"><div class="settings-row-label">Autoplay</div><div class="settings-row-sub">Auto-play next video</div></div>
+      <label class="toggle"><input type="checkbox" id="autoplayToggle" checked/><span class="toggle-track"></span></label>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">App</div>
+    <div class="settings-row" id="installRow" style="display:none">
+      <div class="settings-row-left"><div class="settings-row-label">Install App</div><div class="settings-row-sub">Add to home screen for the full app experience</div></div>
+      <button onclick="installPWA()" style="padding:8px 16px;background:var(--red);border:none;border-radius:8px;color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">Install</button>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">About</div>
+    <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">Version</div><div class="settings-row-sub">YourTube Shorts v2.0</div></div></div>
+    <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">Ad frequency</div><div class="settings-row-sub">Every 20→50→20 videos</div></div></div>
+    <div class="settings-row" style="cursor:pointer" onclick="window.open('privacy.html','_blank')">
+      <div class="settings-row-left"><div class="settings-row-label">Privacy Policy</div><div class="settings-row-sub">How we handle your data</div></div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round"><polyline points="9,18 15,12 9,6"/></svg>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS PANEL -->
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-hdr"><span style="font-size:14px;font-weight:700">Notifications</span><button class="nav-icon-btn" onclick="toggleNotif()">✕</button></div>
+  <div class="notif-list" id="notifList"><div class="empty"><p>No notifications yet</p></div></div>
+</div>
+
+
+<!-- EDIT PROFILE MODAL -->
+<div class="modal-bg" id="editModal">
+  <div class="modal-box">
+    <p class="modal-title">Edit Profile</p>
+    <input class="m-input" id="editName" placeholder="Full name"/>
+    <input class="m-input" id="editHandle" placeholder="Username"/>
+    <textarea class="m-input" id="editBio" placeholder="Bio" style="resize:vertical;min-height:66px"></textarea>
+    <button class="m-save" onclick="saveProfile()">Save Changes</button>
+    <button class="m-cancel" onclick="closeModal('editModal')">Cancel</button>
+  </div>
+</div>
+
+<!-- CREATE CHANNEL MODAL -->
+<div class="modal-bg" id="channelModal">
+  <div class="modal-box">
+    <p class="modal-title">📺 Create Channel</p>
+    <input class="m-input" id="chName" placeholder="Channel name *"/>
+    <input class="m-input" id="chHandle" placeholder="@handle" oninput="this.value=this.value.replace(/[^a-z0-9_]/gi,'').toLowerCase()"/>
+    <textarea class="m-input" id="chDesc" placeholder="Description" style="resize:vertical;min-height:64px"></textarea>
+    <select class="m-input" id="chCat" style="cursor:pointer"><option value="">Category</option><option>Gaming</option><option>Music</option><option>Comedy</option><option>Tech</option><option>Sports</option><option>Education</option></select>
+    <button class="m-save" onclick="createChannel()">Create Channel 🚀</button>
+    <button class="m-cancel" onclick="closeModal('channelModal')">Cancel</button>
+  </div>
+</div>
+<script>
+const SUPABASE_URL='https://ziurmedrbotejnavuaij.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdXJtZWRyYm90ZWpuYXZ1YWlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDU1NjEsImV4cCI6MjA5NjkyMTU2MX0.vmxgs7dTDPFBzNKpgvVz8Cf4Se9fIzAiRt6gJjRWqdk';
+const YT_KEY='AIzaSyBrw_6tAgLzNOImM9qW5H8HkrP29TJ46t0';
+const GROQ_KEY=''; // TODO: route through a server-side proxy (Cloudflare Worker) instead of hardcoding a live key here
+const GROQ_URL='https://api.groq.com/openai/v1/chat/completions';
+// The custom neon-cylinder banner (Direct Link based) has been removed —
+// Vignette Banner (real Monetag ad, impression-based, auto-displays) covers
+// this now via loadMonetagScript() below, so a second manual banner was
+// redundant.
+
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+// STATE
+let user=null,profile=null,currentVideoId=null;
+let feedVideos=[],feedPage=0,feedLoading=false,feedTab='fyp';
+let selectedInterests=new Set(),uploadFile=null,pvt='public',currentEffect=null;
+let notifOpen=false,settingsOpen=false;
+let unTimer=null,censorTimer=null;
+let userChannels=[];
+let ytSubbedIds=new Set();
+let sharedVideoChecked=false;
+// Search: recent-search history (local) + the live result lists currently shown
+let recentSearches=JSON.parse(localStorage.getItem('yts_recent_searches')||'[]');
+let lastSearchNative=[],lastSearchYT=[];
+let suggestTimer=null;
+// Dedicated YouTube viewer (real IFrame Player API)
+let ytApiReady=false;
+
+// SERVICE WORKER
+// ═══ PWA INSTALL ═══
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  const row=document.getElementById('installRow');
+  if(row)row.style.display='flex';
+});
+function installPWA(){
+  if(!deferredInstallPrompt){toast('App already installed or not supported here');return;}
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(choice=>{
+    if(choice.outcome==='accepted')toast('🎉 App installed!');
+    deferredInstallPrompt=null;
+    document.getElementById('installRow').style.display='none';
+  });
+}
+window.addEventListener('appinstalled',()=>{toast('🎉 Installed! Find it on your home screen');document.getElementById('installRow').style.display='none';});
+
+// Service worker video caching removed — it was a suspected contributor to
+// playback lag. sw.js is no longer registered, so the app always plays
+// directly from the network (no intermediate cache layer to add overhead).
+
+// YouTube IFrame Player API — loaded once, early, so the dedicated viewer
+// (used for search results & channel Shorts) is ready the instant it's needed.
+function loadYTIframeAPI(){
+  if(window.YT&&window.YT.Player){ytApiReady=true;return;}
+  const tag=document.createElement('script');
+  tag.src='https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+window.onYouTubeIframeAPIReady=function(){ytApiReady=true;};
+
+// INIT
+window.addEventListener('DOMContentLoaded',async()=>{
+  loadYTIframeAPI();
+  renderInterestGrid();renderEffects();
+  const{data:{session}}=await db.auth.getSession();
+  if(session){user=session.user;await afterLogin();}
+  else{hideLoader();loadFeed();}
+  db.auth.onAuthStateChange(async(ev,s)=>{
+    if(ev==='SIGNED_IN'&&s){user=s.user;await afterLogin();closeAuthSheet();}
+    else if(ev==='SIGNED_OUT'){user=null;profile=null;renderProfilePage();updateProfileNavIcon();}
+  });
+  setTimeout(tryOpenSharedVideo,700);
+});
+
+function hideLoader(){document.getElementById('fullLoader').classList.add('hidden');}
+
+async function afterLogin(){
+  const{data,error}=await db.from('profiles').select('*').eq('id',user.id).single();
+  hideLoader();
+  if(error||!data){showUsernameScreen();return;}
+  profile=data;
+  const def=user.email?.split('@')[0]||user.id.split('-')[0];
+  if(!data.username||data.username===def){showUsernameScreen();return;}
+  if(!data.interests||!data.interests.length){showOnboard();return;}
+  loadFeed();loadNotifications();loadUserChannels();loadYTSubs().then(()=>loadYTSubFeed());importYouTubeSubscriptions();loadYTInterestFeed();importYouTubeInterestSignals();
+  updateProfileNavIcon();
+}
+
+function updateProfileNavIcon(){
+  const el=document.getElementById('bnProfileIcon');if(!el)return;
+  el.innerHTML=profile?.avatar_url
+    ?`<img src="${profile.avatar_url}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;display:block">`
+    :`<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+}
+
+// ═══ USERNAME ═══
+function showUsernameScreen(){document.getElementById('usernameScreen').classList.add('active');}
+function hideUsernameScreen(){document.getElementById('usernameScreen').classList.remove('active');}
+
+async function checkUN(){
+  const v=document.getElementById('unInput').value.trim().toLowerCase();
+  const a=document.getElementById('unAvail'),b=document.getElementById('unBtn');
+  b.disabled=true;
+  if(!v||v.length<3){a.textContent='';return;}
+  if(!/^[a-z0-9_]+$/.test(v)){a.className='avail-no';a.textContent='Only letters, numbers, underscores';return;}
+  clearTimeout(unTimer);
+  unTimer=setTimeout(async()=>{
+    const{data}=await db.from('profiles').select('id').eq('username',v).neq('id',user.id).single();
+    if(data){a.className='avail-no';a.textContent='@'+v+' is taken';}
+    else{a.className='avail-ok';a.textContent='@'+v+' is available ✓';b.disabled=false;}
+  },400);
+}
+
+async function saveUN(){
+  const v=document.getElementById('unInput').value.trim().toLowerCase();
+  if(!v)return;
+  const b=document.getElementById('unBtn');b.disabled=true;b.textContent='Saving...';
+  const{error}=await db.from('profiles').upsert({id:user.id,username:v,full_name:user.user_metadata?.full_name||'',avatar_url:user.user_metadata?.avatar_url||''});
+  if(error){toast('Error: '+error.message);b.disabled=false;b.textContent='Continue →';}
+  else{hideUsernameScreen();showOnboard();}
+}
+
+// ═══ ONBOARD ═══
+const INTERESTS=[{e:'🎮',l:'Gaming'},{e:'🎵',l:'Music'},{e:'😂',l:'Comedy'},{e:'🍳',l:'Cooking'},{e:'💻',l:'Tech'},{e:'⚽',l:'Sports'},{e:'👗',l:'Fashion'},{e:'📚',l:'Education'},{e:'✈️',l:'Travel'},{e:'🎨',l:'Art'},{e:'💪',l:'Fitness'},{e:'📰',l:'News'},{e:'🐾',l:'Pets'},{e:'🌿',l:'Nature'},{e:'💡',l:'Science'},{e:'🎬',l:'Movies'}];
+
+function renderInterestGrid(){
+  document.getElementById('interestGrid').innerHTML=INTERESTS.map(i=>`<div class="int-item" onclick="toggleInt('${i.l}',this)"><span class="int-emoji">${i.e}</span><span class="int-label">${i.l}</span></div>`).join('');
+}
+function showOnboard(){document.getElementById('onboardScreen').classList.add('active');}
+function hideOnboard(){document.getElementById('onboardScreen').classList.remove('active');}
+function toggleInt(l,el){selectedInterests.has(l)?selectedInterests.delete(l):selectedInterests.add(l);el.classList.toggle('on',selectedInterests.has(l));const c=selectedInterests.size;document.getElementById('obCount').textContent=c+' selected';document.getElementById('obBtn').disabled=c<3;}
+async function saveInterests(){
+  const b=document.getElementById('obBtn');b.disabled=true;b.textContent='Saving...';
+  await db.from('profiles').update({interests:[...selectedInterests]}).eq('id',user.id);
+  const{data}=await db.from('profiles').select('*').eq('id',user.id).single();
+  profile=data;hideOnboard();loadFeed();loadNotifications();loadUserChannels();loadYTSubs().then(()=>loadYTSubFeed());importYouTubeSubscriptions();loadYTInterestFeed();importYouTubeInterestSignals();
+}
+
+// ═══ AUTH SHEET ═══
+function openAuthSheet(){document.getElementById('authSheet').classList.add('open');document.getElementById('authOverlay').classList.add('on');}
+function closeAuthSheet(){document.getElementById('authSheet').classList.remove('open');document.getElementById('authOverlay').classList.remove('on');}
+function switchAuth(t){
+  document.getElementById('aTabLogin').classList.toggle('active',t==='login');
+  document.getElementById('aTabSignup').classList.toggle('active',t==='signup');
+  document.getElementById('loginForm').style.display=t==='login'?'flex':'none';
+  document.getElementById('signupForm').style.display=t==='signup'?'flex':'none';
+}
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const remember=document.getElementById('rememberMe').checked;
+  const err=document.getElementById('loginErr'),btn=document.getElementById('loginBtn');
+  err.textContent='';if(!email||!pass){err.textContent='Fill in all fields';return;}
+  btn.disabled=true;btn.textContent='Signing in...';
+  const{error}=await db.auth.signInWithPassword({email,password:pass,options:{persistSession:remember}});
+  if(error){err.textContent=error.message;btn.disabled=false;btn.textContent='Sign In';}
+}
+async function doSignup(){
+  const email=document.getElementById('signupEmail').value.trim();
+  const pass=document.getElementById('signupPass').value;
+  const confirm=document.getElementById('signupConfirm').value;
+  const err=document.getElementById('signupErr'),btn=document.getElementById('signupBtn');
+  err.textContent='';
+  if(!email||!pass){err.textContent='Fill in all fields';return;}
+  if(pass!==confirm){err.textContent='Passwords do not match';return;}
+  if(pass.length<6){err.textContent='Password must be 6+ characters';return;}
+  btn.disabled=true;btn.textContent='Creating...';
+  // No email confirmation — signUp with autoConfirm
+  const{error}=await db.auth.signUp({email,password:pass,options:{emailRedirectTo:null,data:{}}});
+  if(error){err.textContent=error.message;btn.disabled=false;btn.textContent='Create Account';}
+  else{toast('✅ Account created! Signing you in...');await db.auth.signInWithPassword({email,password:pass});}
+}
+async function doGoogle(){
+  // Request youtube.readonly alongside the standard openid/email scopes so
+  // that after sign-in we can read the user's real YouTube subscriptions and
+  // build a personalised FYP from channels they already follow on YouTube.
+  const{error}=await db.auth.signInWithOAuth({
+    provider:'google',
+    options:{
+      redirectTo:location.href,
+      scopes:'openid email profile https://www.googleapis.com/auth/youtube.readonly',
+      queryParams:{access_type:'offline',prompt:'consent'}
+    }
+  });
+  if(error)toast('Google sign-in error: '+error.message);
+}
+// After the OAuth redirect returns, Supabase puts the provider token in the
+// session. We grab it and immediately use it to seed the user's YT subscriptions
+// into our own yt_subscriptions table so the feed can start mixing them in.
+async function importYouTubeSubscriptions(){
+  try{
+    const{data:{session}}=await db.auth.getSession();
+    const ytToken=session?.provider_token;
+    if(!ytToken){return;} // signed in with email, or token not yet available
+    const r=await fetch('https://www.googleapis.com/youtube/v3/subscriptions?part=snippet&mine=true&maxResults=50&key='+YT_KEY,{
+      headers:{Authorization:'Bearer '+ytToken}
+    });
+    const data=await r.json();
+    if(data.error||!data.items?.length)return;
+    const rows=data.items.map(i=>({
+      user_id:profile.id,
+      yt_channel_id:i.snippet.resourceId.channelId,
+      yt_channel_name:i.snippet.title,
+      yt_channel_thumb:i.snippet.thumbnails?.default?.url||''
+    }));
+    // Upsert so re-running this is idempotent (no duplicate rows)
+    await db.from('yt_subscriptions').upsert(rows,{onConflict:'user_id,yt_channel_id'});
+    // Update our local Set so the feed mixing picks up the new subs immediately
+    rows.forEach(r=>ytSubbedIds.add(r.yt_channel_id));
+    toast('✅ Imported your YouTube subscriptions!');
+    // Kick off a sub-feed load now that we have real channel IDs
+    ytSubFeedLoaded=false;
+    loadYTSubFeed();
+  }catch(e){console.error('importYouTubeSubscriptions failed',e);}
+}
+// There is no API that exposes YouTube's actual personalized home/"For You"
+// feed — Google has never released one, for anyone, at any tier. The closest
+// legitimate signal that IS available is the user's real Liked Videos
+// playlist, so we pull that and use the categories it skews toward to run
+// topic-matched searches — a genuine approximation, not a fake substitute.
+async function importYouTubeInterestSignals(){
+  try{
+    const{data:{session}}=await db.auth.getSession();
+    const ytToken=session?.provider_token;
+    if(!ytToken)return;
+    // Step 1: find the special "liked videos" playlist ID for this account
+    const chRes=await fetch('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true&key='+YT_KEY,{headers:{Authorization:'Bearer '+ytToken}});
+    const chData=await chRes.json();
+    const likesPlaylistId=chData.items?.[0]?.contentDetails?.relatedPlaylists?.likes;
+    if(!likesPlaylistId)return;
+    // Step 2: pull recent liked videos from that playlist
+    const plRes=await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${likesPlaylistId}&maxResults=50&key=${YT_KEY}`,{headers:{Authorization:'Bearer '+ytToken}});
+    const plData=await plRes.json();
+    const videoIds=(plData.items||[]).map(i=>i.snippet?.resourceId?.videoId).filter(Boolean).slice(0,50);
+    if(!videoIds.length)return;
+    // Step 3: batch-fetch category IDs for those videos, count which categories dominate
+    const vidRes=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoIds.join(',')}&key=${YT_KEY}`);
+    const vidData=await vidRes.json();
+    const counts={};
+    (vidData.items||[]).forEach(v=>{const c=v.snippet?.categoryId;if(c)counts[c]=(counts[c]||0)+1;});
+    const topCategories=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id])=>id);
+    if(!topCategories.length)return;
+    localStorage.setItem('yts_yt_interest_categories',JSON.stringify(topCategories));
+    ytInterestCategories=topCategories;
+    ytInterestFeedLoaded=false;
+    loadYTInterestFeed();
+  }catch(e){console.error('importYouTubeInterestSignals failed',e);}
+}
+function openForgot(){document.getElementById('forgotSheet').classList.add('open');document.getElementById('forgotOverlay').classList.add('on');}
+function closeForgot(){document.getElementById('forgotSheet').classList.remove('open');document.getElementById('forgotOverlay').classList.remove('on');}
+async function doForgot(){
+  const email=document.getElementById('forgotEmail').value.trim();
+  const err=document.getElementById('forgotErr');
+  if(!email){err.textContent='Enter your email';return;}
+  const{error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.href});
+  if(error)err.textContent=error.message;
+  else{toast('📧 Reset link sent!');closeForgot();}
+}
+async function doSignOut(){await db.auth.signOut();toast('Signed out');renderProfilePage();}
+
+// ═══ NAV ═══
+function goPage(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.bottom-tab').forEach(x=>x.classList.remove('active'));
+  const pm={feed:'feedPage',upload:'uploadPage',profile:'profilePage'};
+  const bm={feed:'bnHome',upload:'bnUpload',profile:'bnProfile'};
+  if(pm[p])document.getElementById(pm[p]).classList.add('active');
+  if(bm[p])document.getElementById(bm[p]).classList.add('active');
+  if(p==='profile')renderProfilePage();
+  if(p==='upload'){loadMonetagScript();/*loadMonetagMultiTag();*/}
+  if(p==='profile'){loadMonetagScript();/*loadMonetagMultiTag();*/}
+}
+
+// ═══ MONETAG SCRIPT — gated loading, feed is never touched ═══
+// Important honesty check on "position": Vignette Banner isn't a banner that
+// sits in a div we choose — Monetag's own script renders it as a centered
+// overlay with a dimmed backdrop, wherever/however THEY decide. We can't
+// relocate that. What we CAN control is timing: firing it the instant a page
+// opens risks colliding with the exact moment someone taps into something
+// (e.g. the search input, or Upload's file picker) — so we wait a beat after
+// the page has actually settled before ever injecting it.
+//
+// "Shows too many times" fix: the old gate (a plain JS variable) only
+// blocked re-injection within a single already-open page load — closing or
+// refreshing the tab reset it back to false every time, so every fresh visit
+// re-triggered it. That's very likely what was happening during testing.
+// This now persists a real timestamp in localStorage, so the ad is gated to
+// once per MONETAG_COOLDOWN_MIN minutes of real time, survives tab
+// closes/reloads, and never re-fires more often than that regardless of how
+// many times Upload/Profile/Search get opened in that window.
+const MONETAG_COOLDOWN_MIN=30; // minutes between allowed ad loads — tune as needed
+function loadMonetagScript(){
+  const last=parseInt(localStorage.getItem('yts_monetag_last')||'0');
+  const now=Date.now();
+  if(now-last<MONETAG_COOLDOWN_MIN*60*1000)return; // still in cooldown, skip entirely
+  localStorage.setItem('yts_monetag_last',String(now));
+  setTimeout(()=>{
+    const s=document.createElement('script');
+    s.dataset.zone='11227557';
+    s.src='https://n6wxm.com/vignette.min.js';
+    (document.body||document.documentElement).appendChild(s);
+  },1500);
+}
+// MultiTag slot — now active with the real zone.
+// Important, still true: MultiTag is Monetag's auto-optimizing format — THEIR
+// algorithm picks which underlying ad type shows (could be Popunder, IPP,
+// Vignette, etc.), decided on their backend, not something controllable from
+// here. It can't be guaranteed to only ever serve non-click, no-redirect ads
+// — only Vignette (wired separately above) is confirmed to behave that way.
+// DISABLED as of this update — very likely cause of "clicking anything
+// randomly sends users to another site." MultiTag lets Monetag's backend
+// pick the underlying format on its own, which can include Popunder (opens
+// a new tab on the NEXT click ANYWHERE on the page, not the ad itself) —
+// exactly the symptom reported, and exactly the risk flagged when this was
+// added. Call sites below are commented out, not deleted. Only re-enable
+// after confirming in the Monetag dashboard that zone 263620 is locked to a
+// format that doesn't redirect on arbitrary clicks.
+const MULTITAG_COOLDOWN_MIN=30; // own cooldown, independent of the Vignette one
+function loadMonetagMultiTag(){
+  const last=parseInt(localStorage.getItem('yts_multitag_last')||'0');
+  const now=Date.now();
+  if(now-last<MULTITAG_COOLDOWN_MIN*60*1000)return;
+  localStorage.setItem('yts_multitag_last',String(now));
+  setTimeout(()=>{
+    const s=document.createElement('script');
+    s.src='https://quge5.com/88/tag.min.js';
+    s.dataset.zone='263620';
+    s.async=true;
+    s.setAttribute('data-cfasync','false');
+    (document.body||document.documentElement).appendChild(s);
+  },1500);
+}
+
+function switchFeedTab(t){
+  feedTab=t;
+  document.getElementById('tabFollowing').classList.toggle('active',t==='following');
+  document.getElementById('tabFYP').classList.toggle('active',t==='fyp');
+  feedVideos=[];feedPage=0;
+  document.getElementById('feedScroll').innerHTML='';
+  loadFeed(t);
+}
+
+function openSettings(){document.getElementById('settingsPanel').classList.add('open');settingsOpen=true;}
+function closeSettings(){document.getElementById('settingsPanel').classList.remove('open');settingsOpen=false;}
+
+// ═══ FEED ═══
+// The swipeable feed is 100% native <video> for Supabase-hosted Shorts, plus
+// real YouTube Shorts (via the IFrame Player API) mixed in from search history
+// and subscriptions — never iframe-in-a-<video>-tag tricks.
+// ─── YT subscription feed cache (refreshed each app load) ───────────────────
+let ytSubFeed=[]; // flat list of {youtube_id,title,channel,channelId,thumb} from subscribed channels
+let ytSubFeedLoaded=false;
+
+async function loadYTSubFeed(){
+  if(ytSubFeedLoaded||!ytSubbedIds.size)return;
+  ytSubFeedLoaded=true;
+  const ids=[...ytSubbedIds].slice(0,6); // cap at 6 channels to stay within quota
+  const perChannel=await Promise.all(ids.map(async chId=>{
+    try{
+      const params=new URLSearchParams({part:'snippet',channelId:chId,type:'video',videoDuration:'short',maxResults:10,key:YT_KEY,order:'date'});
+      const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+      const data=await r.json();
+      return(data.items||[]).map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:chId,thumb:i.snippet.thumbnails?.medium?.url||''}));
+    }catch{return[];}
+  }));
+  // Round-robin interleave across channels (1 from A, 1 from B, 1 from C, back
+  // to A...) instead of flat-concatenating — flat concat left 10-in-a-row
+  // blocks from whichever channel loaded first, which read as "only one
+  // channel shows up" even though the others' videos were technically in
+  // there too, just buried past the first block.
+  ytSubFeed=interleaveArrays(perChannel);
+}
+function interleaveArrays(arrays){
+  const out=[];
+  const max=Math.max(0,...arrays.map(a=>a.length));
+  for(let i=0;i<max;i++){
+    for(const arr of arrays){if(arr[i])out.push(arr[i]);}
+  }
+  return out;
+}
+
+// ─── YT interest feed (from real Liked Videos categories — see
+// importYouTubeInterestSignals above for why this, not a fake "FYP pull") ───
+let ytInterestCategories=JSON.parse(localStorage.getItem('yts_yt_interest_categories')||'[]');
+let ytInterestFeed=[];
+let ytInterestFeedLoaded=false;
+
+async function loadYTInterestFeed(){
+  if(ytInterestFeedLoaded||!ytInterestCategories.length)return;
+  ytInterestFeedLoaded=true;
+  const results=await Promise.all(ytInterestCategories.map(async catId=>{
+    try{
+      const params=new URLSearchParams({part:'snippet',type:'video',videoDuration:'short',videoCategoryId:catId,maxResults:10,key:YT_KEY,order:'relevance'});
+      const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+      const data=await r.json();
+      return(data.items||[]).map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:i.snippet.channelId,thumb:i.snippet.thumbnails?.medium?.url||''}));
+    }catch{return[];}
+  }));
+  ytInterestFeed=results.flat();
+}
+
+// ─── Pool: pure random discovery — unfiltered by anything the user has told
+// us about themselves, for genuine serendipity/variety in the mix ───
+let ytDiscoveryFeed=[];
+let ytDiscoveryFeedLoaded=false;
+const DISCOVERY_TERMS=['shorts','viral shorts','trending shorts','funny shorts','amazing shorts','shorts today'];
+async function loadYTDiscoveryFeed(){
+  if(ytDiscoveryFeedLoaded)return;
+  ytDiscoveryFeedLoaded=true;
+  const q=DISCOVERY_TERMS[Math.floor(Math.random()*DISCOVERY_TERMS.length)];
+  try{
+    const params=new URLSearchParams({part:'snippet',type:'video',videoDuration:'short',maxResults:15,key:YT_KEY,order:'viewCount',q});
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const data=await r.json();
+    ytDiscoveryFeed=(data.items||[]).map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:i.snippet.channelId,thumb:i.snippet.thumbnails?.medium?.url||''}));
+  }catch(e){console.error('loadYTDiscoveryFeed failed',e);}
+}
+
+// ─── Pool: videos matching the user's onboarding-selected interest tags
+// (profile.interests, e.g. "Gaming"/"Comedy") — a distinct signal from
+// liked-video categories (ytInterestFeed above), since this is what the user
+// explicitly told us they like, not inferred from behavior ───
+let ytProfileInterestFeed=[];
+let ytProfileInterestFeedLoaded=false;
+async function loadYTProfileInterestFeed(){
+  if(ytProfileInterestFeedLoaded||!profile?.interests?.length)return;
+  ytProfileInterestFeedLoaded=true;
+  const picks=[...profile.interests].sort(()=>Math.random()-0.5).slice(0,3);
+  const results=await Promise.all(picks.map(async tag=>{
+    try{
+      const params=new URLSearchParams({part:'snippet',type:'video',videoDuration:'short',maxResults:10,key:YT_KEY,order:'relevance',q:tag+' shorts'});
+      const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+      const data=await r.json();
+      return(data.items||[]).map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:i.snippet.channelId,thumb:i.snippet.thumbnails?.medium?.url||''}));
+    }catch{return[];}
+  }));
+  ytProfileInterestFeed=results.flat();
+}
+
+// ─── Pool: fresh videos from channels behind videos the user has actually
+// watched/searched (ytWatchHistory), even for channels they haven't formally
+// subscribed to — "more like this channel" without requiring a subscribe tap ───
+let ytInteractedChannelFeed=[];
+let ytInteractedChannelFeedLoaded=false;
+async function loadYTInteractedChannelFeed(){
+  if(ytInteractedChannelFeedLoaded)return;
+  const chIds=[...new Set(ytWatchHistory.map(v=>v.channelId).filter(Boolean))].filter(id=>!ytSubbedIds.has(id)).slice(0,4);
+  if(!chIds.length)return;
+  ytInteractedChannelFeedLoaded=true;
+  const results=await Promise.all(chIds.map(async chId=>{
+    try{
+      const params=new URLSearchParams({part:'snippet',channelId:chId,type:'video',videoDuration:'short',maxResults:8,key:YT_KEY,order:'date'});
+      const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+      const data=await r.json();
+      return(data.items||[]).map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:chId,thumb:i.snippet.thumbnails?.medium?.url||''}));
+    }catch{return[];}
+  }));
+  ytInteractedChannelFeed=interleaveArrays(results);
+}
+
+async function loadFeed(t){
+  t=t||feedTab;if(feedLoading)return;feedLoading=true;
+  try{
+    if(t==='following'){
+      if(!ytSubFeedLoaded)await loadYTSubFeed(); // make sure real YT subs are in before we render this tab
+      if(profile){
+        const{data:follows}=await db.from('follows').select('following_id').eq('follower_id',profile.id);
+        const ids=(follows||[]).map(f=>f.following_id);
+        let vids=[];
+        if(ids.length){
+          const{data,error}=await db.from('videos').select('*,profiles:user_id(username,full_name,avatar_url)').eq('is_public',true).in('user_id',ids).order('created_at',{ascending:false}).range(feedPage*10,feedPage*10+9);
+          if(error)console.error('loadFeed(following) error',error);
+          vids=data||[];
+        }
+        feedPage++;
+        if(vids.length||ytSubFeed.length){
+          feedVideos.push(...vids);
+          renderFollowingVids(vids);
+        } else if(feedPage===1){
+          renderEmptyFeed('Follow creators or subscribe to YouTube channels to fill this feed.',{label:'🔎 Search',onclick:'openSearchOverlay()'});
+        }
+        feedLoading=false;return;
+      }
+      renderEmptyFeed('Sign in to see people and channels you follow.',{label:'🔎 Search',onclick:'openSearchOverlay()'});
+      feedLoading=false;return;
+    }
+    // FYP tab — fetch native Shorts, then smart-mix with subscribed/watched YT content
+    let query=db.from('videos').select('*,profiles:user_id(username,full_name,avatar_url)').eq('is_public',true).order('created_at',{ascending:false}).range(feedPage*10,feedPage*10+9);
+    if(profile?.interests?.length)query=query.in('category',profile.interests);
+    const{data:vids,error}=await query;
+    if(error)console.error('loadFeed(fyp) error',error);
+    feedPage++;
+    // Wait for all YT pools before deciding anything — this used to
+    // fire-and-forget, so the empty-state check below ran before any
+    // YouTube fetch had a chance to finish, showing "search to get started"
+    // even when real content was seconds away from being ready. After the
+    // first load these all resolve near-instantly (each has its own
+    // already-loaded guard), so awaiting them here isn't a real cost.
+    await Promise.all([loadYTSubFeed(),loadYTInterestFeed(),loadYTDiscoveryFeed(),loadYTProfileInterestFeed(),loadYTInteractedChannelFeed()]);
+    const hasYT=ytSubFeed.length||ytInterestFeed.length||ytWatchHistory.length||ytDiscoveryFeed.length||ytProfileInterestFeed.length||ytInteractedChannelFeed.length;
+    if(vids?.length||hasYT){
+      if(vids?.length)feedVideos.push(...vids);
+      renderFeedVids(vids||[]);
+    } else if(feedPage===1){
+      renderEmptyFeed('No Shorts yet — search for YouTube content to get started 🔎',{label:'🔎 Search',onclick:'openSearchOverlay()'});
+    }
+  }catch(e){console.error(e);}
+  feedLoading=false;
+}
+
+function renderEmptyFeed(msg,cta){
+  document.getElementById('feedScroll').innerHTML=`<div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:var(--muted);text-align:center;padding:20px">
+    <p style="font-size:14px;line-height:1.6">${msg}</p>
+    ${cta?`<button class="btn-red" onclick="${cta.onclick}">${cta.label}</button>`:''}
+  </div>`;
+}
+
+// The Subscribed tab is deliberately NOT run through the FYP's 40/60
+// algorithmic mixer (buildYTMixQueue pulls in interest + watch-history too,
+// which don't belong here). This tab shows exactly two things: native
+// creators you follow, and real videos from your actual YouTube
+// subscriptions — interleaved, nothing else, same idea as YouTube's own
+// Subscriptions tab.
+function renderFollowingVids(nativeVids){
+  const scroll=document.getElementById('feedScroll');
+  const ytPool=ytSubFeed.filter(v=>!document.getElementById('wrap-yt-'+v.youtube_id));
+  let ni=0,yi=0;
+  // Interleave 1 native : 1 YT-subscribed while both pools last, then drain whichever remains
+  while(ni<nativeVids.length||yi<ytPool.length){
+    if(ni<nativeVids.length){scroll.appendChild(buildSlide(nativeVids[ni]));ni++;}
+    if(yi<ytPool.length){scroll.appendChild(buildYTSlide(ytPool[yi]));yi++;}
+  }
+  setupFeedScroll();
+  if(nativeVids.length)hydrateSlideState(nativeVids);
+}
+
+// Smart mixing: 40% native Supabase Shorts, 60% subscribed+searched+interest YT content.
+// The 60% pool is the union of six signals:
+//   • Subscribed YouTube channels (ytSubFeed)
+//   • Categories inferred from liked videos (ytInterestFeed)
+//   • Videos previously searched/watched (ytWatchHistory)
+//   • Pure random discovery, unfiltered by user data (ytDiscoveryFeed)
+//   • Onboarding-selected interest tags (ytProfileInterestFeed)
+//   • Fresh videos from channels behind watched content, even unsubscribed (ytInteractedChannelFeed)
+// They're interleaved naturally — every 2 native slides, 3 YT slides follow.
+// Duplicates (same youtube_id already in the DOM) are silently skipped.
+let ytMixQueue=[]; // ephemeral queue rebuilt each render call from all six pools
+let ytMixQueuePtr=0;
+
+function buildYTMixQueue(){
+  const seen=new Set();
+  const combined=[...ytSubFeed,...ytInterestFeed,...ytWatchHistory,...ytDiscoveryFeed,...ytProfileInterestFeed,...ytInteractedChannelFeed].filter(v=>{
+    if(!v.youtube_id||seen.has(v.youtube_id))return false;
+    seen.add(v.youtube_id);return true;
+  });
+  // Fisher-Yates light shuffle so it doesn't always show oldest-sub content first
+  for(let i=combined.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [combined[i],combined[j]]=[combined[j],combined[i]];
+  }
+  return combined;
+}
+
+function renderFeedVids(vids){
+  const scroll=document.getElementById('feedScroll');
+  // Rebuild the YT mix queue if empty
+  if(!ytMixQueue.length){ytMixQueue=buildYTMixQueue();ytMixQueuePtr=0;}
+
+  // No native videos at all (e.g. nothing uploaded yet) — the pattern loop
+  // below is driven by iterating native vids, so with zero of those it would
+  // never run AT ALL and nothing would render, even with YT content sitting
+  // ready in the mix queue. Fall back to a pure-YT batch instead.
+  if(!vids.length){
+    if(!ytMixQueue.length)return; // truly nothing to show, caller handles the empty state
+    const batch=Math.min(10,ytMixQueue.length);
+    for(let i=0;i<batch;i++){
+      const yv=ytMixQueue[ytMixQueuePtr%ytMixQueue.length];
+      ytMixQueuePtr++;
+      if(ytMixQueuePtr>=ytMixQueue.length){ytMixQueue=buildYTMixQueue();ytMixQueuePtr=0;}
+      if(!document.getElementById('wrap-yt-'+yv.youtube_id))scroll.appendChild(buildYTSlide(yv));
+    }
+    setupFeedScroll();
+    return;
+  }
+
+  // 40/60 mixing: pattern = [N,N, Y,Y,Y] repeating (2 native : 3 YT)
+  const pattern=[false,false,true,true,true];
+  let patternIdx=0;
+  vids.forEach(v=>{
+    // Native slide
+    scroll.appendChild(buildSlide(v));
+    patternIdx++;
+    // Insert YT slides according to pattern
+    while(patternIdx<pattern.length&&pattern[patternIdx]){
+      if(ytMixQueue.length){
+        const yv=ytMixQueue[ytMixQueuePtr%ytMixQueue.length];
+        ytMixQueuePtr++;
+        // Wrap around and reshuffle when we've exhausted the queue once
+        if(ytMixQueuePtr>=ytMixQueue.length){ytMixQueue=buildYTMixQueue();ytMixQueuePtr=0;}
+        if(!document.getElementById('wrap-yt-'+yv.youtube_id))scroll.appendChild(buildYTSlide(yv));
+      }
+      patternIdx++;
+    }
+    if(patternIdx>=pattern.length)patternIdx=0;
+  });
+  setupFeedScroll();
+  hydrateSlideState(vids);
+}
+
+// After slides are in the DOM, fetch the current user's actual like/follow
+// state for them in ONE batched query each (not one query per video) and
+// update the buttons — this is what makes hearts/Subscribe buttons reflect
+// reality on load instead of always starting blank.
+async function hydrateSlideState(vids){
+  if(!profile||!vids?.length)return;
+  const ids=vids.map(v=>v.id);
+  const uids=[...new Set(vids.map(v=>v.user_id).filter(Boolean))];
+  try{
+    const[likedRes,followRes]=await Promise.all([
+      db.from('likes').select('video_id').eq('user_id',profile.id).in('video_id',ids),
+      uids.length?db.from('follows').select('following_id').eq('follower_id',profile.id).in('following_id',uids):Promise.resolve({data:[]})
+    ]);
+    const likedSet=new Set((likedRes.data||[]).map(r=>r.video_id));
+    const followSet=new Set((followRes.data||[]).map(r=>r.following_id));
+    vids.forEach(v=>{
+      if(likedSet.has(v.id)){
+        const btn=document.getElementById('lb-'+v.id);
+        if(btn){btn.classList.add('liked');const svg=btn.querySelector('svg');svg.setAttribute('fill','#FF0000');svg.setAttribute('stroke','#FF0000');}
+      }
+      if(v.user_id&&followSet.has(v.user_id)){
+        const btn=document.getElementById('sb-'+v.id);
+        if(btn){btn.classList.add('subbed');btn.textContent='Subscribed';}
+      }
+    });
+  }catch(e){console.error('hydrateSlideState failed',e);}
+}
+
+function buildSlide(v){
+  const el=document.createElement('div');
+  el.className='short-slide';
+  el.style.height=document.getElementById('feedPage').clientHeight+'px';
+  const av=v.profiles?.avatar_url?`<img src="${v.profiles.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:`<span>${(v.profiles?.username||'?').charAt(0).toUpperCase()}</span>`;
+  const tags=(v.hashtags||[]).map(t=>`<span class="short-tag">${t.startsWith('#')?t:'#'+t}</span>`).join('');
+  el.innerHTML=`<div class="video-wrap" id="wrap-${v.id}" data-vidurl="${v.video_url||''}">
+    ${v.thumbnail_url?`<img class="video-thumb" src="${v.thumbnail_url}" loading="lazy"/>`:`<div class="video-thumb" style="background:var(--surface2)"></div>`}
+    <div class="video-gradient"></div>
+    <div class="play-overlay hidden" id="ov-${v.id}" onclick="playVid('${v.id}','${v.video_url||''}')">
+      <div class="play-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg></div>
+    </div>
+    <div class="yt-swipe-cap" onclick="toggleNativePlay('${v.id}')"></div>
+    <div class="short-info">
+      <div class="short-channel-row">
+        <div class="short-avatar">${av}</div>
+        <span class="short-channel-name">@${esc(v.profiles?.username||'unknown')}</span>
+        <button class="short-sub-btn" id="sb-${v.id}" onclick="followUser('${v.user_id||''}','${v.id}')">Subscribe</button>
+      </div>
+      <p class="short-title">${esc(v.title||'')}</p>
+      ${tags?`<div class="short-tags">${tags}</div>`:''}
+    </div>
+    <div class="action-bar">
+      <div class="action-item">
+        <button class="action-btn" id="lb-${v.id}" onclick="toggleLike('${v.id}')">
+          <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </button><span class="action-count" id="lc-${v.id}" data-raw="${v.likes_count||0}">${fmt(v.likes_count||0)}</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="openComments('${v.id}')">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button><span class="action-count" id="cc-${v.id}" data-raw="${v.comments_count||0}">${fmt(v.comments_count||0)}</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="shareVid('${v.id}')">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </button><span class="action-count">Share</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="dlVid('${v.video_url||''}','${v.id}')">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button><span class="action-count">Download</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="openSearchOverlay()">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
+        </button><span class="action-count">Search</span>
+      </div>
+    </div>
+    <div class="heart-burst" id="hb-${v.id}">👍</div>
+  </div>`;
+  let lt=0;
+  el.addEventListener('touchend',()=>{const n=Date.now();if(n-lt<300)doubleTapLike(v.id);lt=n;});
+  el.addEventListener('dblclick',()=>doubleTapLike(v.id));
+  return el;
+}
+
+// YouTube slides reuse the exact same .short-slide/.video-wrap/.action-bar
+// shape as native slides (same CSS, same swipe-snap container) so they're
+// indistinguishable in the scroll feed — just rendered with a YT IFrame
+// Player instead of a <video> tag, since that's the only legal way to play
+// YouTube content. id is prefixed 'yt-' so every action handler can branch
+// to the YouTube-appropriate behavior.
+function buildYTSlide(v){
+  const slideId='yt-'+v.youtube_id;
+  const el=document.createElement('div');
+  el.className='short-slide';
+  el.style.height=document.getElementById('feedPage').clientHeight+'px';
+  const chSafe=esc(v.channel||'YouTube').replace(/'/g,"\\'");
+  const isSubbed=v.channelId&&ytSubbedIds.has(v.channelId);
+  el.innerHTML=`<div class="video-wrap" id="wrap-${slideId}" data-ytid="${v.youtube_id}">
+    ${v.thumb?`<img class="video-thumb" src="${v.thumb}" loading="lazy"/>`:`<div class="video-thumb" style="background:var(--surface2)"></div>`}
+    <div id="ytp-${slideId}"></div>
+    <div class="yt-swipe-cap" onclick="toggleYTPlay('${slideId}')"></div>
+    <div class="video-gradient" style="pointer-events:none"></div>
+    <div class="play-overlay hidden" id="ov-${slideId}" style="pointer-events:none">
+      <div class="play-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg></div>
+    </div>
+    <div class="short-info" style="pointer-events:none">
+      <div class="short-channel-row" style="pointer-events:auto">
+        <div class="short-avatar"><span>${(v.channel||'?').charAt(0).toUpperCase()}</span></div>
+        <span class="short-channel-name">${esc(v.channel||'YouTube')}</span>
+        ${v.channelId?`<button class="short-sub-btn ${isSubbed?'subbed':''}" id="sb-${slideId}" onclick="toggleYTSub('${v.channelId}','${chSafe}','',this)">${isSubbed?'Subscribed':'Subscribe'}</button>`:''}
+      </div>
+      <p class="short-title">${esc(v.title||'')}</p>
+      <span class="result-badge">YouTube</span>
+    </div>
+    <div class="action-bar">
+      <div class="action-item">
+        <button class="action-btn" id="lb-${slideId}" onclick="toggleLike('${slideId}')">
+          <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </button><span class="action-count" id="lc-${slideId}">–</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="openComments('${slideId}')">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button><span class="action-count" id="cc-${slideId}">–</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="shareVid('','${v.youtube_id}')">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </button><span class="action-count">Share</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="dlVid('','${slideId}')">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><polygon points="10,8 16,12 10,16"/></svg>
+        </button><span class="action-count">YouTube</span>
+      </div>
+      <div class="action-item">
+        <button class="action-btn" onclick="openSearchOverlay()">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
+        </button><span class="action-count">Search</span>
+      </div>
+    </div>
+    <div class="heart-burst" id="hb-${slideId}">👍</div>
+  </div>`;
+  let lt=0;
+  el.addEventListener('touchend',()=>{const n=Date.now();if(n-lt<300)doubleTapLike(slideId);lt=n;});
+  hydrateYTSlideStats(slideId,v.youtube_id);
+  return el;
+}
+// Pulls the video's real public stats (views/likes/comment count) straight
+// from YouTube's videos.list endpoint — this is what makes the badge numbers
+// on a YT slide reflect YouTube's actual numbers, not a guess.
+async function hydrateYTSlideStats(slideId,ytId){
+  try{
+    const params=new URLSearchParams({part:'statistics',id:ytId,key:YT_KEY});
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`);
+    const data=await r.json();
+    const stats=data.items?.[0]?.statistics;if(!stats)return;
+    const lc=document.getElementById('lc-'+slideId);if(lc)lc.textContent=fmt(parseInt(stats.likeCount||0));
+    const cc=document.getElementById('cc-'+slideId);if(cc)cc.textContent=fmt(parseInt(stats.commentCount||0));
+  }catch(e){console.error('hydrateYTSlideStats failed',e);}
+}
+
+// ═══ WATCH HISTORY → recirculate watched/searched YouTube videos into the feed ═══
+let ytWatchHistory=JSON.parse(localStorage.getItem('yts_yt_watch_history')||'[]');
+function recordYTWatch(v){
+  ytWatchHistory=ytWatchHistory.filter(h=>h.youtube_id!==v.youtube_id);
+  ytWatchHistory.unshift({youtube_id:v.youtube_id,title:v.title,channel:v.channel,channelId:v.channelId||null,thumb:v.thumb||''});
+  ytWatchHistory=ytWatchHistory.slice(0,50);
+  localStorage.setItem('yts_yt_watch_history',JSON.stringify(ytWatchHistory));
+}
+let ytMixPointer=parseInt(localStorage.getItem('yts_yt_mix_ptr')||'0');
+// Opens a YouTube video directly inside the main swipeable feed (used by
+// search results & channel browsing) — inserts it at the top, plays it, and
+// records it to watch history so it keeps resurfacing in the feed afterward,
+// per "any video you search for and watch will begin to show on your feed".
+function openYTInFeed(v){
+  closeSearchOverlay();
+  goPage('feed');
+  recordYTWatch(v);
+  const slideId='yt-'+v.youtube_id;
+  const existing=document.getElementById('wrap-'+slideId);
+  if(existing){existing.closest('.short-slide')?.scrollIntoView();return;}
+  const scroll=document.getElementById('feedScroll');
+  const slide=buildYTSlide(v);
+  slide.style.height=document.getElementById('feedPage').clientHeight+'px';
+  scroll.prepend(slide);scroll.scrollTop=0;
+  setupFeedScroll();
+}
+
+let lastIdx=-1;
+let intersectionObserver=null;
+let activeSlideId=null;
+let ytPlayers={}; // slideId ('yt-...') -> YT.Player instance, kept alive while in the feed
+
+function setupFeedScroll(){
+  const scroll=document.getElementById('feedScroll');
+  document.querySelectorAll('.short-slide').forEach(s=>s.style.height=scroll.clientHeight+'px');
+
+  scroll.onscroll=()=>{
+    const near=scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<350;
+    if(near&&!feedLoading)loadFeed();
+  };
+
+  if(intersectionObserver)intersectionObserver.disconnect();
+
+  intersectionObserver=new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      const wrap=entry.target.querySelector('.video-wrap');
+      if(!wrap)return;
+      const vid=wrap.id.replace('wrap-','');
+
+      if(isYTSlideId(vid)){
+        const ytId=wrap.dataset.ytid||'';
+        if(entry.isIntersecting&&entry.intersectionRatio>=0.85){
+          activeSlideId=vid;
+          pauseAllExcept(vid);
+          autoPlayYTSlide(vid,ytId);
+          preloadAdjacentSlides(entry.target);
+        } else {
+          ytPlayers[vid]?.pauseVideo?.();
+        }
+        return;
+      }
+
+      const vidEl=wrap.querySelector('video.pv');
+      if(entry.isIntersecting&&entry.intersectionRatio>=0.85){
+        activeSlideId=vid;
+        pauseAllExcept(vid);
+        const vidUrl=wrap.dataset.vidurl||'';
+        if(!vidEl&&vidUrl){
+          autoPlaySlide(vid,vidUrl);
+        } else if(vidEl){
+          vidEl.muted=false;vidEl.play().catch(()=>{});
+          document.getElementById('ov-'+vid)?.classList.add('hidden');
+        }
+        preloadAdjacentSlides(entry.target);
+      } else {
+        // Actually pause (not just mute) — leaving it merely muted kept it
+        // decoding silently in the background, which is exactly what made
+        // the next slide feel like it "paused then resumed": the device was
+        // still busy with the OLD video when the NEW one tried to start.
+        if(vidEl){vidEl.pause();vidEl.muted=true;}
+        ytPlayers[vid]?.pauseVideo?.();
+      }
+    });
+  },{threshold:[0.85]});
+
+  document.querySelectorAll('.short-slide').forEach(slide=>{
+    intersectionObserver.observe(slide);
+  });
+}
+
+// Belt-and-suspenders: make sure nothing except the active slide is ever
+// playing/decoding at once (covers cases the observer's threshold timing
+// might miss during a fast swipe).
+function pauseAllExcept(activeId){
+  document.querySelectorAll('.video-wrap video.pv').forEach(v=>{
+    const wrapId=v.closest('.video-wrap')?.id.replace('wrap-','');
+    if(wrapId!==activeId){v.pause();v.muted=true;}
+  });
+  Object.entries(ytPlayers).forEach(([id,p])=>{if(id!==activeId)p?.pauseVideo?.();});
+}
+
+// Eagerly create (muted, paused) the video element for the slide directly
+// below the one that just became active, so by the time the user actually
+// swipes to it the file is already buffering — turning "wait for network,
+// then play" into "already loaded, just unmute and play instantly".
+function preloadAdjacentSlides(activeSlideEl){
+  const next=activeSlideEl.nextElementSibling;
+  if(!next||!next.classList.contains('short-slide'))return;
+  const wrap=next.querySelector('.video-wrap');if(!wrap)return;
+  const id=wrap.id.replace('wrap-','');
+  if(isYTSlideId(id))return; // YT players are heavier — only preload native video files
+  if(wrap.querySelector('video.pv'))return;
+  const vidUrl=wrap.dataset.vidurl;if(!vidUrl)return;
+  const v=document.createElement('video');
+  v.className='video-el pv';
+  v.src=vidUrl;v.muted=true;v.playsInline=true;v.loop=true;v.preload='auto';
+  wrap.appendChild(v);
+}
+
+let viewedThisSession=new Set(); // avoid recounting the same video repeatedly in one sitting
+function autoPlaySlide(id,vidUrl){
+  const ov=document.getElementById('ov-'+id);
+  const wrap=document.getElementById('wrap-'+id);
+  if(!wrap||!vidUrl)return;
+  if(ov)ov.classList.add('hidden');
+  let v=wrap.querySelector('video.pv');
+  if(!v){
+    v=document.createElement('video');
+    v.className='video-el pv';
+    v.src=vidUrl;v.playsInline=true;v.loop=true;
+    wrap.appendChild(v);
+  }
+  v.muted=false;
+  v.play().catch(()=>{});
+  if(!viewedThisSession.has(id)){
+    viewedThisSession.add(id);
+    db.rpc('increment_video_view',{vid:id}).then(({error})=>{if(error)console.error('view count failed',error);});
+  }
+}
+
+// Lazily creates a real YT.Player the first time a YouTube slide scrolls into
+// view, then just plays/resumes it on subsequent visits (kept alive, same as
+// native <video> elements, instead of being torn down and rebuilt every swipe).
+function autoPlayYTSlide(id,ytId){
+  if(!ytId)return;
+  if(ytPlayers[id]){ytPlayers[id].playVideo?.();updateYTPlayIcon(id,true);return;}
+  const make=()=>{
+    const holderId='ytp-'+id;
+    ytPlayers[id]=new YT.Player(holderId,{
+      videoId:ytId,
+      playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1,controls:0,disablekb:1,mute:0,fs:0,iv_load_policy:3,vq:'hd1080'},
+      events:{
+        onReady:e=>{e.target.setPlaybackQuality('hd1080');e.target.playVideo();updateYTPlayIcon(id,true);},
+        onStateChange:e=>{
+          if(e.data===YT.PlayerState.ENDED)e.target.seekTo(0);
+          // Only show the play button for states that genuinely need a tap to
+          // resume (paused, ended, unstarted). BUFFERING used to count as
+          // "not playing" here, which re-showed the button on every routine
+          // rebuffer — the flicker reported — even though the video was
+          // still actively playing or about to resume a moment later.
+          const needsTap=e.data===YT.PlayerState.PAUSED||e.data===YT.PlayerState.ENDED||e.data===YT.PlayerState.UNSTARTED;
+          updateYTPlayIcon(id,!needsTap);
+        }
+      }
+    });
+  };
+  if(ytApiReady&&window.YT&&window.YT.Player)make();
+  else{
+    const wait=setInterval(()=>{if(window.YT&&window.YT.Player){clearInterval(wait);ytApiReady=true;make();}},150);
+    setTimeout(()=>clearInterval(wait),8000);
+  }
+}
+function updateYTPlayIcon(id,isPlaying){
+  const ov=document.getElementById('ov-'+id);if(!ov)return;
+  ov.classList.toggle('hidden',isPlaying);
+}
+// The swipe-capture div sits on top of the iframe (iframes otherwise swallow
+// touch events and block the ancestor scroll-snap container from ever seeing
+// the gesture). Because this div is a plain sibling element — not the iframe
+// itself — normal touch scrolling still bubbles up to the feed for swipes;
+// we only intercept the click, which only fires for a genuine tap, never a
+// scroll-drag, so the video stays swipeable whether it's playing or paused.
+function toggleYTPlay(id){
+  const p=ytPlayers[id];if(!p)return;
+  const state=p.getPlayerState?.();
+  if(state===1)p.pauseVideo();else p.playVideo();
+}
+
+// ═══ PLAYER ═══
+function playVid(id,vidUrl){
+  const ov=document.getElementById('ov-'+id),wrap=document.getElementById('wrap-'+id);
+  ov.classList.add('hidden');wrap.querySelector('video.pv')?.remove();
+  if(!vidUrl)return;
+  const v=document.createElement('video');v.className='video-el pv';
+  v.src=vidUrl;v.autoplay=true;v.playsInline=true;wrap.appendChild(v);
+}
+// Tap-to-pause for native videos — mirrors toggleYTPlay for YouTube slides.
+// Needed now that native browser controls are off: without this, there was
+// no way to pause a native video at all once playback started, and the
+// browser's OWN control chrome (a separate, un-styleable play button outside
+// our custom overlay) was the actual thing showing up as "play button still
+// shows while playing" — turning it on was masking the real problem, not
+// fixing it.
+function toggleNativePlay(id){
+  const wrap=document.getElementById('wrap-'+id);const v=wrap?.querySelector('video.pv');if(!v)return;
+  const ov=document.getElementById('ov-'+id);
+  if(v.paused){v.play().catch(()=>{});if(ov)ov.classList.add('hidden');}
+  else{v.pause();if(ov)ov.classList.remove('hidden');}
+}
+
+// ═══ ACTIONS ═══
+function isYTSlideId(id){return typeof id==='string'&&id.startsWith('yt-');}
+
+async function toggleLike(vid){
+  if(isYTSlideId(vid)){toggleYTLikeLocal(vid);return;}
+  if(!profile){openAuthSheet();return;}
+  const btn=document.getElementById('lb-'+vid);if(!btn)return;
+  const isLiked=btn.classList.contains('liked');const svg=btn.querySelector('svg');
+  // Optimistic UI — flips instantly, reverted below if the write actually fails
+  btn.classList.toggle('liked');
+  svg.setAttribute('fill',isLiked?'none':'#FF0000');svg.setAttribute('stroke',isLiked?'white':'#FF0000');
+  const{error}=isLiked
+    ?await db.from('likes').delete().eq('user_id',profile.id).eq('video_id',vid)
+    :await db.from('likes').insert({user_id:profile.id,video_id:vid});
+  if(error){
+    btn.classList.toggle('liked');
+    svg.setAttribute('fill',isLiked?'#FF0000':'none');svg.setAttribute('stroke',isLiked?'#FF0000':'white');
+    toast('Failed: '+error.message);return;
+  }
+  if(!isLiked){
+    toast('👍 Liked!');
+    notifyVideoOwner(vid,`liked your video`);
+  }
+  syncLikeCount(vid);
+}
+// Creates a real notification row for the video's owner — this is what was
+// missing entirely before; the notifications table only ever got READ from,
+// nothing ever wrote to it. Skips notifying yourself, and fails silently
+// since a missed notification shouldn't block the actual like/comment/follow.
+async function notifyVideoOwner(vid,message){
+  try{
+    const v=feedVideos.find(x=>x.id===vid);
+    const ownerId=v?.user_id;
+    if(!ownerId||ownerId===profile.id)return;
+    await db.from('notifications').insert({user_id:ownerId,actor_id:profile.id,message});
+  }catch(e){console.error('notifyVideoOwner failed',e);}
+}
+// Real YouTube likes require a YouTube-scoped OAuth token (separate from our
+// Supabase Google sign-in) — the public API key we use can only READ a
+// video's real like count, not register one. So the displayed number is the
+// real YouTube count (fetched in hydrateYTSlideStats), and tapping here is a
+// local-only heart-burst reaction, not a write to YouTube.
+function toggleYTLikeLocal(vid){
+  const btn=document.getElementById('lb-'+vid);if(!btn)return;
+  const svg=btn.querySelector('svg');const isOn=btn.classList.contains('liked');
+  btn.classList.toggle('liked');
+  svg.setAttribute('fill',isOn?'none':'#FF0000');svg.setAttribute('stroke',isOn?'white':'#FF0000');
+  if(!isOn)toast('👍 Reaction saved here — real YouTube likes need the YouTube app');
+}
+// Re-derive the like count straight from the likes table (source of truth)
+// instead of trusting a denormalized counter that's easy to let drift —
+// updates the visible badge AND persists it back onto videos.likes_count.
+async function syncLikeCount(vid){
+  try{
+    const{count}=await db.from('likes').select('*',{count:'exact',head:true}).eq('video_id',vid);
+    if(typeof count!=='number')return;
+    const span=document.getElementById('lc-'+vid);
+    if(span){span.dataset.raw=count;span.textContent=fmt(count);}
+    db.from('videos').update({likes_count:count}).eq('id',vid).then(()=>{});
+  }catch(e){console.error('syncLikeCount failed',e);}
+}
+function doubleTapLike(vid){
+  const h=document.getElementById('hb-'+vid);if(!h)return;
+  h.classList.remove('pop','fade');void h.offsetWidth;h.classList.add('pop');
+  setTimeout(()=>{h.classList.remove('pop');h.classList.add('fade');},380);
+  setTimeout(()=>h.classList.remove('fade'),780);
+  const b=document.getElementById('lb-'+vid);if(b&&!b.classList.contains('liked'))toggleLike(vid);
+}
+async function followUser(uid,vid){
+  if(isYTSlideId(vid))return; // YT slides use toggleYTSub via their own button, not this
+  if(!profile){openAuthSheet();return;}
+  if(!uid){toast('Could not identify this creator');return;}
+  if(uid===profile.id){toast("Can't subscribe to yourself");return;}
+  const btn=document.getElementById('sb-'+vid);if(!btn)return;
+  const isF=btn.classList.contains('subbed');
+  btn.classList.toggle('subbed');btn.textContent=isF?'Subscribe':'Subscribed';
+  const{error}=isF
+    ?await db.from('follows').delete().eq('follower_id',profile.id).eq('following_id',uid)
+    :await db.from('follows').insert({follower_id:profile.id,following_id:uid});
+  if(error){
+    btn.classList.toggle('subbed');btn.textContent=isF?'Subscribed':'Subscribe';
+    toast('Failed: '+error.message);return;
+  }
+  toast(isF?'Unsubscribed':'✅ Subscribed!');
+  if(!isF){
+    try{await db.from('notifications').insert({user_id:uid,actor_id:profile.id,message:'started following you'});}
+    catch(e){console.error('follow notification failed',e);}
+  }
+}
+// Cross-origin <a download> is silently ignored by browsers (it just navigates
+// instead of saving) — fetch the bytes ourselves and download via a blob URL,
+// which actually works for Supabase Storage's cross-origin video files.
+async function dlVid(url,id){
+  if(isYTSlideId(id)){toast("YouTube videos can't be downloaded here — open them in the YouTube app to save");return;}
+  if(!url){toast('Download not available');return;}
+  toast('⬇️ Downloading...');
+  try{
+    const res=await fetch(url);
+    if(!res.ok)throw new Error('fetch failed');
+    const blob=await res.blob();
+    const blobUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=blobUrl;a.download='short-'+id+'.mp4';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(blobUrl),4000);
+  }catch{
+    window.open(url,'_blank');
+    toast('Opened in new tab — long-press the video to save');
+  }
+}
+async function shareVid(id,ytId){
+  const url=ytId?`https://www.youtube.com/shorts/${ytId}`:`${location.origin}${location.pathname}?v=${id}`;
+  if(navigator.share){try{await navigator.share({title:'Check this Short!',url});return;}catch{}}
+  await navigator.clipboard.writeText(url).catch(()=>{});toast('🔗 Link copied!');
+}
+// Opens a native video directly (used by shared links via ?v= and by tapping
+// a native search result) — pushes it to the top of the feed and plays it,
+// so it gets full like/comment/subscribe functionality for free.
+function openNativeVideo(v){
+  goPage('feed');
+  const existing=document.getElementById('wrap-'+v.id);
+  if(existing){existing.closest('.short-slide')?.scrollIntoView();return;}
+  feedVideos.unshift(v);
+  const scroll=document.getElementById('feedScroll');
+  const slide=buildSlide(v);
+  slide.style.height=document.getElementById('feedPage').clientHeight+'px';
+  scroll.prepend(slide);scroll.scrollTop=0;
+  setupFeedScroll();
+  hydrateSlideState([v]);
+  setTimeout(()=>playVid(v.id,v.video_url||''),250);
+}
+async function tryOpenSharedVideo(){
+  if(sharedVideoChecked)return;sharedVideoChecked=true;
+  const vid=new URLSearchParams(location.search).get('v');
+  if(!vid)return;
+  try{
+    const{data}=await db.from('videos').select('*,profiles:user_id(username,full_name,avatar_url)').eq('id',vid).eq('is_public',true).single();
+    if(data)openNativeVideo(data);
+  }catch{}
+}
+
+
+
+// ═══ COMMENTS ═══
+async function openComments(vid){
+  currentVideoId=vid;
+  document.getElementById('commentsSheet').classList.add('open');document.getElementById('sheetOverlay').classList.add('on');
+  document.getElementById('commentsList').innerHTML='<div class="empty"><div class="spinner"></div></div>';
+  if(isYTSlideId(vid)){await openYTComments(vid);return;}
+  document.getElementById('commentInputRow').style.display='flex';
+  const{data,error}=await db.from('comments').select('*,profiles:user_id(username)').eq('video_id',vid).order('created_at',{ascending:false});
+  const list=document.getElementById('commentsList');
+  if(error){
+    console.error('Failed to load comments',error);
+    document.getElementById('commentCount').textContent='';
+    list.innerHTML='<div class="empty"><p>Could not load comments. Pull to retry.</p></div>';
+    return;
+  }
+  const n=data?.length||0;
+  document.getElementById('commentCount').textContent=n?`(${n})`:'';
+  // Keep the badge in the feed (and the stored counter) in sync with reality —
+  // it used to only ever show whatever count the video was created with.
+  const badge=document.getElementById('cc-'+vid);if(badge){badge.dataset.raw=n;badge.textContent=fmt(n);}
+  db.from('videos').update({comments_count:n}).eq('id',vid).then(()=>{});
+  if(!n){list.innerHTML='<div class="empty"><p>No comments yet. Be first!</p></div>';return;}
+  list.innerHTML=data.map(c=>`<div class="comment-item"><div class="c-avatar" style="background:${chColor(c.user_id)}">${(c.profiles?.username||'?').charAt(0).toUpperCase()}</div><div class="c-body"><p class="c-user">@${esc(c.profiles?.username||'unknown')}</p><p class="c-text">${esc(c.content)}</p><div class="c-meta"><span class="c-time">${ago(c.created_at)}</span></div></div></div>`).join('');
+}
+function closeComments(){document.getElementById('commentsSheet').classList.remove('open');document.getElementById('sheetOverlay').classList.remove('on');currentVideoId=null;}
+async function postComment(){
+  if(isYTSlideId(currentVideoId)){toast("Posting to YouTube needs the YouTube app — comments here are read-only");return;}
+  if(!profile){openAuthSheet();return;}if(!currentVideoId)return;
+  const inp=document.getElementById('commentInput');const txt=inp.value.trim();if(!txt)return;
+  inp.value='';
+  const{error}=await db.from('comments').insert({user_id:profile.id,video_id:currentVideoId,content:txt});
+  if(error){toast('Failed to post: '+error.message);return;}
+  toast('💬 Posted!');openComments(currentVideoId);
+  const preview=txt.length>60?txt.slice(0,60)+'…':txt;
+  notifyVideoOwner(currentVideoId,`commented: "${preview}"`);
+}
+// Real comments pulled straight from YouTube's public commentThreads API —
+// read-only (posting/liking comments on YouTube needs a YouTube-scoped OAuth
+// token, which is separate from the Google sign-in we use for our own accounts).
+async function openYTComments(vid){
+  const ytId=vid.replace('yt-','');
+  document.getElementById('commentInputRow').style.display='none';
+  const list=document.getElementById('commentsList');
+  try{
+    const params=new URLSearchParams({part:'snippet',videoId:ytId,maxResults:50,order:'relevance',textFormat:'plainText',key:YT_KEY});
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${params}`);
+    const data=await r.json();
+    if(data.error){
+      document.getElementById('commentCount').textContent='';
+      list.innerHTML=`<div class="empty"><p>${data.error.reason==='commentsDisabled'?'Comments are disabled on this video':'Could not load comments: '+esc(data.error.message)}</p></div>`;
+      return;
+    }
+    const items=data.items||[];
+    document.getElementById('commentCount').textContent=items.length?`(${fmt(items.length)}+)`:'';
+    if(!items.length){list.innerHTML='<div class="empty"><p>No comments on this video yet</p></div>';return;}
+    list.innerHTML=items.map(it=>{
+      const c=it.snippet.topLevelComment.snippet;
+      return`<div class="comment-item"><div class="c-avatar" style="background:#1a1a1a;background-image:url('${c.authorProfileImageUrl||''}');background-size:cover"></div><div class="c-body"><p class="c-user">${esc(c.authorDisplayName||'YouTube user')}</p><p class="c-text">${esc(c.textDisplay||'')}</p><div class="c-meta"><span class="c-time">${ago(c.publishedAt)}</span><span style="margin-left:8px">👍 ${fmt(c.likeCount||0)}</span></div></div></div>`;
+    }).join('');
+  }catch(e){
+    console.error('openYTComments failed',e);
+    list.innerHTML='<div class="empty"><p>Could not load comments. Check connection.</p></div>';
+  }
+}
+
+// ═══ SEARCH (unified — replaces the old Explore page) ═══
+// One search surfaces channels + videos together (native Shorts first, then
+// YouTube). YouTube results open in the dedicated viewer; native results
+// open right in the feed with full like/comment/subscribe functionality.
+
+function openSearchOverlay(){
+  document.getElementById('searchOverlay').classList.add('open');
+  const inp=document.getElementById('searchInput');inp.value='';
+  document.getElementById('searchClearBtn').style.display='none';
+  renderSearchDefault();
+  loadMonetagScript();/*loadMonetagMultiTag();*/
+  setTimeout(()=>inp.focus(),60);
+}
+function closeSearchOverlay(){
+  document.getElementById('searchOverlay').classList.remove('open');
+  clearTimeout(suggestTimer);
+}
+function clearSearchInput(){
+  const inp=document.getElementById('searchInput');inp.value='';inp.focus();
+  document.getElementById('searchClearBtn').style.display='none';
+  renderSearchDefault();
+}
+
+function renderSearchDefault(){
+  const body=document.getElementById('searchOverlayBody');
+  if(recentSearches.length){
+    body.innerHTML=`<p class="section-title">Recent searches</p>`+recentSearches.map((s,i)=>suggestionRow(s,'',i,true)).join('');
+    return;
+  }
+  body.innerHTML='<div class="empty"><p>Search for Shorts or YouTube channels</p></div>';
+}
+
+function saveRecentSearch(q){
+  recentSearches=recentSearches.filter(s=>s.toLowerCase()!==q.toLowerCase());
+  recentSearches.unshift(q);
+  recentSearches=recentSearches.slice(0,10);
+  localStorage.setItem('yts_recent_searches',JSON.stringify(recentSearches));
+}
+function removeRecentSearch(i,ev){
+  ev.stopPropagation();
+  recentSearches.splice(i,1);
+  localStorage.setItem('yts_recent_searches',JSON.stringify(recentSearches));
+  renderSearchDefault();
+}
+
+// One suggestion/history row, YouTube-style: typed prefix in regular weight,
+// the suggested completion in bold, a clock/search icon on the left, and a
+// diagonal arrow on the right that only FILLS the box (doesn't search yet) —
+// matching exactly how YouTube's own suggestions behave.
+function suggestionRow(full,typed,idx,isHistory){
+  const safeFull=esc(full).replace(/'/g,"\\'");
+  let head=full,tail='';
+  if(typed&&full.toLowerCase().startsWith(typed.toLowerCase())){head=full.slice(0,typed.length);tail=full.slice(typed.length);}
+  const icon=isHistory
+    ?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12,7 12,12 16,14"/></svg>'
+    :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  return`<div style="display:flex;align-items:center;gap:14px;padding:11px 0;cursor:pointer" onclick="runSearchFor('${safeFull}')">
+    <span style="flex-shrink:0;display:flex">${icon}</span>
+    <span style="flex:1;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(head)}<b>${esc(tail)}</b></span>
+    <button onclick="event.stopPropagation();fillSearchInput('${safeFull}')" style="background:none;border:none;color:#888;cursor:pointer;padding:6px;flex-shrink:0;display:flex">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="17" y1="17" x2="7" y2="7"/><polyline points="7,17 7,7 17,7"/></svg>
+    </button>
+  </div>`;
+}
+
+function runSearchFor(q){document.getElementById('searchInput').value=q;runSearch();}
+function fillSearchInput(q){
+  const inp=document.getElementById('searchInput');inp.value=q;inp.focus();
+  document.getElementById('searchClearBtn').style.display='flex';
+  onSearchInput();
+}
+
+// Debounced as-you-type suggestions: instant local recent-search matches,
+// merged with YouTube/Google's real autocomplete endpoint once it returns.
+function onSearchInput(){
+  const q=document.getElementById('searchInput').value.trim();
+  document.getElementById('searchClearBtn').style.display=q?'flex':'none';
+  clearTimeout(suggestTimer);
+  if(!q){renderSearchDefault();return;}
+  const body=document.getElementById('searchOverlayBody');
+  const localMatches=recentSearches.filter(s=>s.toLowerCase().includes(q.toLowerCase()));
+  body.innerHTML=localMatches.map(s=>suggestionRow(s,q,0,true)).join('');
+  suggestTimer=setTimeout(async()=>{
+    const apiSuggestions=await fetchYTSuggestions(q);
+    const merged=[...localMatches];
+    apiSuggestions.forEach(s=>{if(!merged.some(m=>m.toLowerCase()===s.toLowerCase()))merged.push(s);});
+    if(!merged.length){body.innerHTML=suggestionRow(q,q,0,false);return;}
+    body.innerHTML=merged.slice(0,10).map(s=>suggestionRow(s,q,0,recentSearches.some(r=>r.toLowerCase()===s.toLowerCase()))).join('');
+  },220);
+}
+
+// YouTube/Google's public suggest endpoint (the same one the YouTube app
+// itself calls) — used via JSONP since it doesn't send CORS headers for a
+// direct fetch(). Falls back to nothing if it's ever unreachable.
+function fetchYTSuggestions(q){
+  return new Promise(resolve=>{
+    const cbName='ytsugg_'+Date.now()+Math.floor(Math.random()*1000);
+    let done=false;
+    const script=document.createElement('script');
+    const cleanup=()=>{delete window[cbName];script.remove();};
+    window[cbName]=(data)=>{
+      if(done)return;done=true;
+      try{resolve((data[1]||[]).map(x=>Array.isArray(x)?x[0]:x));}catch{resolve([]);}
+      cleanup();
+    };
+    script.src=`https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=${cbName}`;
+    script.onerror=()=>{if(done)return;done=true;resolve([]);cleanup();};
+    document.body.appendChild(script);
+    setTimeout(()=>{if(!done){done=true;resolve([]);cleanup();}},2000);
+  });
+}
+
+async function runSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q)return;
+  saveRecentSearch(q);
+  clearTimeout(suggestTimer);
+  const body=document.getElementById('searchOverlayBody');
+  body.innerHTML='<div class="empty"><div class="spinner"></div></div>';
+  const[nativeVids,ytV,ytC]=await Promise.all([searchNativeVideos(q),searchYTVideosRaw(q),searchYTChannelsRaw(q)]);
+  lastSearchNative=nativeVids;lastSearchYT=ytV.items||[];
+  renderSearchResults(q,nativeVids,ytV,ytC);
+}
+
+async function searchNativeVideos(q){
+  try{
+    const{data,error}=await db.from('videos').select('*,profiles:user_id(username,full_name,avatar_url)').eq('is_public',true).or(`title.ilike.%${q}%,category.ilike.%${q}%`).limit(12);
+    if(error){console.error('searchNativeVideos error',error);return[];}
+    return data||[];
+  }catch(e){console.error(e);return[];}
+}
+async function searchYTVideosRaw(q){
+  try{
+    const params=new URLSearchParams({part:'snippet',type:'video',videoDuration:'short',maxResults:15,key:YT_KEY,q:q+' shorts'});
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const data=await r.json();
+    if(data.error)return{items:[],error:data.error.message};
+    return{items:(data.items||[]).map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:i.snippet.channelId,thumb:i.snippet.thumbnails?.medium?.url||''}))};
+  }catch{return{items:[],error:'Search failed. Check connection.'};}
+}
+async function searchYTChannelsRaw(q){
+  try{
+    const params=new URLSearchParams({part:'snippet',type:'channel',maxResults:8,key:YT_KEY,q});
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const data=await r.json();
+    if(data.error)return{items:[],error:data.error.message};
+    return{items:(data.items||[]).map(ch=>({id:ch.id.channelId,name:ch.snippet.channelTitle,thumb:ch.snippet.thumbnails?.default?.url||''}))};
+  }catch{return{items:[],error:'Channel search failed.'};}
+}
+
+function renderSearchResults(q,nativeVids,ytV,ytC){
+  const body=document.getElementById('searchOverlayBody');
+  const chItems=ytC.items||[];const ytItems=ytV.items||[];
+  if(!nativeVids.length&&!ytItems.length&&!chItems.length){
+    body.innerHTML=`<div class="empty"><p>No results for "${esc(q)}"</p></div>`;return;
+  }
+  let html='';
+  if(chItems.length){
+    html+=`<p class="section-title">📺 Channels</p>`;
+    html+=chItems.map(ch=>{
+      const isSubbed=ytSubbedIds.has(ch.id);const safeName=esc(ch.name).replace(/'/g,"\\'");
+      return`<div class="yt-ch-item" onclick="loadChannelFeed('${ch.id}','${safeName}')">
+        <img class="yt-ch-thumb" src="${ch.thumb}" onerror="this.style.background='var(--surface3)'"/>
+        <div class="yt-ch-info"><div class="yt-ch-name">${esc(ch.name)}</div><div class="yt-ch-sub-count">YouTube Channel · Tap to watch Shorts</div></div>
+        <button class="yt-ch-btn ${isSubbed?'subbed':''}" onclick="event.stopPropagation();toggleYTSub('${ch.id}','${safeName}','${ch.thumb}',this)">${isSubbed?'Subscribed':'Subscribe'}</button>
+      </div>`;
+    }).join('');
+  }
+  if(nativeVids.length||ytItems.length){
+    html+=`<p class="section-title" style="margin-top:16px">🎬 Videos</p>`;
+    html+=nativeVids.map((v,idx)=>`<div class="result-video-item" onclick="playNativeSearchResult(${idx})">
+      <img class="result-thumb" src="${v.thumbnail_url||''}" loading="lazy" onerror="this.style.background='var(--surface3)'"/>
+      <div class="result-info">
+        <p class="result-title">${esc(v.title||'Untitled')}</p>
+        <p class="result-channel">@${esc(v.profiles?.username||'unknown')}</p>
+        <span class="result-badge">Shorts</span>
+      </div>
+    </div>`).join('');
+    html+=ytItems.map((v,idx)=>`<div class="result-video-item" onclick="openYTInFeed(lastSearchYT[${idx}])">
+      <img class="result-thumb" src="${v.thumb}" loading="lazy"/>
+      <div class="result-info">
+        <p class="result-title">${esc(v.title)}</p>
+        <p class="result-channel">@${esc(v.channel)}</p>
+        <span class="result-badge">YouTube</span>
+      </div>
+    </div>`).join('');
+  }
+  if(ytV.error||ytC.error){
+    html+=`<p style="font-size:11px;color:var(--muted);margin-top:10px">YouTube search note: ${esc(ytV.error||ytC.error)}</p>`;
+  }
+  body.innerHTML=html;
+}
+
+function playNativeSearchResult(idx){
+  const v=lastSearchNative[idx];if(!v)return;
+  closeSearchOverlay();
+  openNativeVideo(v);
+}
+
+async function loadChannelFeed(chId,name){
+  toast('Loading '+name+' Shorts...');
+  try{
+    const params=new URLSearchParams({part:'snippet',channelId:chId,type:'video',videoDuration:'short',maxResults:15,key:YT_KEY,order:'date'});
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const data=await r.json();
+    if(!data.items?.length){toast('No Shorts from this channel yet');return;}
+    const list=data.items.map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:chId,thumb:i.snippet.thumbnails?.medium?.url||''}));
+    closeSearchOverlay();goPage('feed');
+    const scroll=document.getElementById('feedScroll');
+    list.forEach(v=>{recordYTWatch(v);if(!document.getElementById('wrap-yt-'+v.youtube_id))scroll.appendChild(buildYTSlide(v));});
+    setupFeedScroll();
+    scroll.scrollTop=0;
+  }catch{toast('Could not load channel videos.');}
+}
+
+// ═══ YT SUBSCRIPTIONS ═══
+async function loadYTSubs(){
+  if(!profile)return;
+  const{data}=await db.from('yt_subscriptions').select('*').eq('user_id',profile.id);
+  ytSubbedIds=new Set((data||[]).map(s=>s.yt_channel_id));
+}
+async function toggleYTSub(chId,name,thumb,btn){
+  if(!profile){openAuthSheet();return;}
+  const isS=btn.classList.contains('subbed');
+  btn.classList.toggle('subbed');btn.textContent=isS?'Subscribe':'Subscribed';
+  const{error}=isS
+    ?await db.from('yt_subscriptions').delete().eq('user_id',profile.id).eq('yt_channel_id',chId)
+    :await db.from('yt_subscriptions').insert({user_id:profile.id,yt_channel_id:chId,yt_channel_name:name,yt_channel_thumb:thumb});
+  if(error){
+    btn.classList.toggle('subbed');btn.textContent=isS?'Subscribed':'Subscribe';
+    toast('Failed: '+error.message);return;
+  }
+  if(isS){
+    ytSubbedIds.delete(chId);
+    ytSubFeed=ytSubFeed.filter(v=>v.channelId!==chId); // drop their videos from the Subscribed pool immediately
+    toast('Unsubscribed from '+name);
+  }else{
+    ytSubbedIds.add(chId);
+    toast('✅ Subscribed to '+name+'!');
+    fetchAndAddChannelToSubFeed(chId,name); // pull their videos into Subscribed right now, no reload needed
+  }
+}
+// Pulls just the ONE newly-subscribed channel's videos (not a full re-fetch
+// of every subscription) and appends to ytSubFeed, so the Subscribed tab
+// reflects a new subscribe the moment it happens.
+async function fetchAndAddChannelToSubFeed(chId,name){
+  try{
+    const params=new URLSearchParams({part:'snippet',channelId:chId,type:'video',videoDuration:'short',maxResults:10,key:YT_KEY,order:'date'});
+    const r=await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    const data=await r.json();
+    const vids=(data.items||[]).map(i=>({youtube_id:i.id.videoId,title:i.snippet.title,channel:i.snippet.channelTitle,channelId:chId,thumb:i.snippet.thumbnails?.medium?.url||''}));
+    // Weave into the existing feed (every 3rd slot) rather than appending as
+    // one solid block at the end — keeps a freshly-subscribed channel mixed
+    // in with everyone else instead of dumped after everything else.
+    let insertAt=Math.min(3,ytSubFeed.length);
+    vids.forEach(v=>{ytSubFeed.splice(insertAt,0,v);insertAt=Math.min(insertAt+3,ytSubFeed.length);});
+  }catch(e){console.error('fetchAndAddChannelToSubFeed failed',e);}
+}
+
+// ═══ EFFECTS ═══
+const EFFECTS=[{id:'none',l:'✨ Original',f:''},{id:'cinematic',l:'🎬 Cinematic',f:'contrast(1.2) saturate(0.8) brightness(0.92)'},{id:'vivid',l:'🌈 Vivid',f:'saturate(1.9) contrast(1.1)'},{id:'vintage',l:'📷 Vintage',f:'sepia(0.6) contrast(0.9) brightness(1.04)'},{id:'noir',l:'🖤 Noir',f:'grayscale(1) contrast(1.3)'},{id:'warm',l:'🌅 Warm',f:'sepia(0.28) saturate(1.4) hue-rotate(-10deg)'},{id:'glow',l:'✨ Glow',f:'brightness(1.18) contrast(0.88) saturate(1.3)'}];
+function renderEffects(){const r=document.getElementById('effectsRow');if(!r)return;r.innerHTML=EFFECTS.map(e=>`<div class="fx-chip ${e.id==='none'?'on':''}" onclick="applyFX('${e.id}',this)">${e.l}</div>`).join('');}
+function applyFX(id,el){document.querySelectorAll('.fx-chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');currentEffect=id;const fx=EFFECTS.find(e=>e.id===id);const v=document.getElementById('previewVid');if(v&&fx)v.style.filter=fx.f;toast('Effect: '+fx.l);}
+
+// ═══ CENSOR ═══
+function triggerCensor(){const s=document.getElementById('censorStatus');s.innerHTML='<span class="censor-badge censor-checking">🤖 AI checking...</span>';clearTimeout(censorTimer);censorTimer=setTimeout(runCensor,1000);}
+async function runCensor(){
+  const t=document.getElementById('upTitle').value.trim();const d=document.getElementById('upDesc').value.trim();
+  const s=document.getElementById('censorStatus');if(!t&&!d){s.innerHTML='';return;}
+  try{
+    const r=await fetch(GROQ_URL,{method:'POST',headers:{'Authorization':'Bearer '+GROQ_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'llama3-8b-8192',max_tokens:80,messages:[{role:'user',content:`Content moderator. Safe? Reply ONLY JSON {"safe":true/false,"reason":"brief"}. Title:"${t}" Desc:"${d}"`}]})});
+    const data=await r.json();const txt=data.choices?.[0]?.message?.content||'{"safe":true}';
+    const res=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    s.innerHTML=res.safe?'<span class="censor-badge censor-ok">✅ Content looks good</span>':`<span class="censor-badge censor-warn">⚠️ Flagged: ${esc(res.reason||'Review content')}</span>`;
+  }catch{s.innerHTML='<span class="censor-badge censor-ok">✅ Content check skipped</span>';}
+}
+async function censorAPI(t,d){
+  try{const r=await fetch(GROQ_URL,{method:'POST',headers:{'Authorization':'Bearer '+GROQ_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'llama3-8b-8192',max_tokens:60,messages:[{role:'user',content:`Safe content? JSON only {"safe":true/false}. Title:"${t}" Desc:"${d}"`}]})});const data=await r.json();return JSON.parse((data.choices?.[0]?.message?.content||'{"safe":true}').replace(/```json|```/g,'').trim());}catch{return{safe:true};}
+}
+
+// ═══ UPLOAD ═══
+function pickFile(){document.getElementById('fileInput').click();}
+function onDragOver(e){e.preventDefault();document.getElementById('uploadArea').classList.add('drag');}
+function onDragLeave(){document.getElementById('uploadArea').classList.remove('drag');}
+function onDrop(e){e.preventDefault();document.getElementById('uploadArea').classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video/')){const dt=new DataTransfer();dt.items.add(f);document.getElementById('fileInput').files=dt.files;onFilePicked({target:{files:[f]}});}}
+let uploadThumbFile=null,capturedThumbBlob=null;
+function onFilePicked(e){
+  const f=e.target.files[0];if(!f)return;if(f.size>500*1024*1024){toast('File too large. Max 500MB');return;}
+  uploadFile=f;uploadThumbFile=null;capturedThumbBlob=null;
+  const vidUrl=URL.createObjectURL(f);
+  document.getElementById('previewVid').src=vidUrl;
+  document.getElementById('uploadPreview').style.display='block';document.getElementById('uploadArea').style.display='none';
+  document.getElementById('effectsWrap').style.display='block';
+  captureAutoThumbnail(vidUrl);
+}
+// Auto-captures a frame ~1s into the video as the default thumbnail — every
+// native upload used to have NO thumbnail at all since nothing set one.
+function captureAutoThumbnail(vidUrl){
+  const v=document.createElement('video');
+  v.src=vidUrl;v.muted=true;v.playsInline=true;
+  v.addEventListener('loadeddata',()=>{v.currentTime=Math.min(1,(v.duration||2)/2);});
+  v.addEventListener('seeked',()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=v.videoWidth;canvas.height=v.videoHeight;
+    canvas.getContext('2d').drawImage(v,0,0,canvas.width,canvas.height);
+    canvas.toBlob(blob=>{
+      if(!blob)return;
+      capturedThumbBlob=blob;
+      if(!uploadThumbFile){document.getElementById('thumbPreview').src=URL.createObjectURL(blob);document.getElementById('thumbField').style.display='block';}
+    },'image/jpeg',0.85);
+  });
+}
+// YouTube-style override — lets the user replace the auto-captured frame
+// with their own uploaded image.
+function onThumbPicked(e){
+  const f=e.target.files[0];if(!f)return;
+  uploadThumbFile=f;
+  document.getElementById('thumbPreview').src=URL.createObjectURL(f);
+}
+function clearPreview(){uploadFile=null;uploadThumbFile=null;capturedThumbBlob=null;document.getElementById('uploadPreview').style.display='none';document.getElementById('uploadArea').style.display='flex';document.getElementById('effectsWrap').style.display='none';document.getElementById('thumbField').style.display='none';document.getElementById('fileInput').value='';document.getElementById('thumbInput').value='';document.getElementById('censorStatus').innerHTML='';}
+function setPvt(v,el){pvt=v;document.querySelectorAll('.p-opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');}
+
+async function doUpload(){
+  if(!profile){openAuthSheet();return;}if(!uploadFile){toast('Select a video first');return;}
+  const title=document.getElementById('upTitle').value.trim();if(!title){toast('Add a title');return;}
+  if(document.getElementById('censorStatus').innerHTML.includes('Flagged')){toast('⚠️ Fix flagged content first');return;}
+  const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='Uploading...';
+  const pw=document.getElementById('progWrap'),fill=document.getElementById('progFill'),pt=document.getElementById('progText');
+  pw.style.display='block';
+  try{
+    const ext=uploadFile.name.split('.').pop();const path=`${profile.id}/${Date.now()}.${ext}`;
+    fill.style.width='20%';pt.textContent='Uploading video...';
+    const{error:ue}=await db.storage.from('videos').upload(path,uploadFile,{upsert:false});
+    if(ue)throw ue;fill.style.width='45%';pt.textContent='Uploading thumbnail...';
+    const{data:ud}=db.storage.from('videos').getPublicUrl(path);
+    let thumbUrl='';
+    const thumbFile=uploadThumbFile||capturedThumbBlob;
+    if(thumbFile){
+      const thumbPath=`${profile.id}/${Date.now()}-thumb.jpg`;
+      const{error:te}=await db.storage.from('videos').upload(thumbPath,thumbFile,{upsert:false,contentType:'image/jpeg'});
+      if(!te){const{data:td}=db.storage.from('videos').getPublicUrl(thumbPath);thumbUrl=td.publicUrl;}
+    }
+    fill.style.width='60%';pt.textContent='AI screening...';
+    const cres=await censorAPI(title,document.getElementById('upDesc').value);
+    fill.style.width='80%';pt.textContent='Saving...';
+    const tags=document.getElementById('upTags').value.split(/[\s,]+/).filter(t=>t.startsWith('#'));
+    const{error:de}=await db.from('videos').insert({user_id:profile.id,title,description:document.getElementById('upDesc').value.trim(),video_url:ud.publicUrl,thumbnail_url:thumbUrl,category:document.getElementById('upCat').value||(profile.interests?.[0]||'General'),hashtags:tags,channel_id:document.getElementById('upChannel').value||null,is_public:pvt==='public'&&cres.safe,views_count:0,likes_count:0,comments_count:0});
+    if(de)throw de;
+    await db.from('profiles').update({videos_count:(profile.videos_count||0)+1}).eq('id',profile.id);
+    fill.style.width='100%';pt.textContent=cres.safe?'🚀 Published!':'⚠️ Saved private (AI flagged)';
+    toast(cres.safe?'🚀 Short published!':'⚠️ Saved as private — AI flagged content');
+    setTimeout(()=>{pw.style.display='none';fill.style.width='0%';document.getElementById('upTitle').value='';document.getElementById('upDesc').value='';document.getElementById('upTags').value='';document.getElementById('censorStatus').innerHTML='';clearPreview();btn.disabled=false;btn.textContent='🚀 Publish Short';feedVideos=[];feedPage=0;document.getElementById('feedScroll').innerHTML='';goPage('feed');loadFeed();},1400);
+  }catch(e){toast('Upload failed: '+e.message);pw.style.display='none';btn.disabled=false;btn.textContent='🚀 Publish Short';}
+}
+
+// ═══ PROFILE ═══
+async function renderProfilePage(){
+  const pc=document.getElementById('profileContent');
+  if(!profile){
+    pc.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:40px 20px;text-align:center;gap:16px">
+      <div style="width:80px;height:80px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px">👤</div>
+      <h2 style="font-size:20px;font-weight:800">Sign in to YourTube Shorts</h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.5">Like videos, follow creators,<br/>upload your Shorts and more.</p>
+      <button class="a-btn" onclick="openAuthSheet()" style="width:auto;padding:12px 32px;border-radius:12px">Sign In / Sign Up</button>
+    </div>`;return;
+  }
+  pc.innerHTML=`<div class="profile-banner" id="pBanner" style="${profile.banner_url?`background-image:url('${profile.banner_url}');background-size:cover;background-position:center`:''}">
+    <button class="profile-banner-edit" onclick="document.getElementById('bannerInp').click()">📷 Edit banner</button>
+    <input type="file" id="bannerInp" accept="image/*" style="display:none" onchange="uploadBanner(event)"/>
+  </div>
+  <div class="profile-hdr">
+    <div class="p-avatar-wrap">
+      <div class="p-avatar" id="pAvatar">${profile.avatar_url?`<img src="${profile.avatar_url}">`:(profile.username||'?').charAt(0).toUpperCase()}</div>
+      <div class="p-avatar-edit" onclick="document.getElementById('avatarInp').click()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+      <input type="file" id="avatarInp" accept="image/*" style="display:none" onchange="uploadAvatar(event)"/>
+    </div>
+    <p class="p-name">${esc(profile.full_name||profile.username||'YourTube User')}</p>
+    <p class="p-handle">@${esc(profile.username||'')}</p>
+    <p class="p-bio">${esc(profile.bio||'')}</p>
+    <div class="p-stats">
+      <div class="p-stat"><span class="p-stat-n">${fmt(profile.videos_count||0)}</span><span class="p-stat-l">Videos</span></div>
+      <div class="p-stat"><span class="p-stat-n">${fmt(profile.followers_count||0)}</span><span class="p-stat-l">Subscribers</span></div>
+      <div class="p-stat"><span class="p-stat-n">${fmt(profile.following_count||0)}</span><span class="p-stat-l">Following</span></div>
+    </div>
+    <div class="earnings-card">
+      <div style="font-size:10px;color:var(--gold);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px">💰 Creator Earnings</div>
+      <div class="earn-amount">₦<span id="earnAmt">0.00</span></div>
+      <div class="earn-label">Total ad revenue this month</div>
+      <div class="earn-row">
+        <div class="earn-stat"><div class="earn-stat-v" id="earnViews">0</div><div class="earn-stat-l">Views</div></div>
+        <div class="earn-stat"><div class="earn-stat-v" id="earnAds">0</div><div class="earn-stat-l">Ad Plays</div></div>
+        <div class="earn-stat"><div class="earn-stat-v" id="earnCPM">₦0</div><div class="earn-stat-l">CPM</div></div>
+      </div>
+    </div>
+    <div class="p-actions" style="margin-top:12px">
+      <button class="p-btn" onclick="openModal('editModal');document.getElementById('editName').value=profile.full_name||'';document.getElementById('editHandle').value=profile.username||'';document.getElementById('editBio').value=profile.bio||''">Edit</button>
+      <button class="p-btn" onclick="openModal('channelModal')">+ Channel</button>
+      <button class="p-btn" onclick="shareProfile()">Share</button>
+      <button class="p-btn danger" onclick="doSignOut()">Sign Out</button>
+    </div>
+  </div>
+  <div class="p-tabs">
+    <div class="p-tab active" onclick="loadPTab('videos',this)">Videos</div>
+    <div class="p-tab" onclick="loadPTab('liked',this)">👍 Liked</div>
+    <div class="p-tab" onclick="loadPTab('channels',this)">📺 Channels</div>
+  </div>
+  <div id="pTabContent"></div>`;
+  loadEarnings();loadPTab('videos',document.querySelector('.p-tab'));
+}
+
+async function loadPTab(tab,el){
+  document.querySelectorAll('.p-tab').forEach(t=>t.classList.remove('active'));el?.classList.add('active');
+  const c=document.getElementById('pTabContent');if(!c)return;
+  c.innerHTML='<div class="empty"><div class="spinner"></div></div>';
+  if(tab==='videos'){const{data}=await db.from('videos').select('*').eq('user_id',profile.id).order('created_at',{ascending:false});if(!data?.length){c.innerHTML='<div class="empty"><p>No videos yet</p></div>';return;}c.innerHTML=`<div class="vid-grid">${data.map(v=>`<div class="vid-item">${v.thumbnail_url?`<img src="${v.thumbnail_url}" loading="lazy"/>`:'<div style="width:100%;height:100%;background:var(--surface3)"></div>'}<div class="vid-views">▶ ${fmt(v.views_count||0)}</div></div>`).join('')}</div>`;}
+  else if(tab==='liked'){const{data}=await db.from('likes').select('video_id,videos(*)').eq('user_id',profile.id).limit(30);const vids=(data||[]).map(l=>l.videos).filter(Boolean);if(!vids.length){c.innerHTML='<div class="empty"><p>No liked videos</p></div>';return;}c.innerHTML=`<div class="vid-grid">${vids.map(v=>`<div class="vid-item">${v.thumbnail_url?`<img src="${v.thumbnail_url}" loading="lazy"/>`:'<div style="width:100%;height:100%;background:var(--surface3)"></div>'}<div class="vid-views">❤️</div></div>`).join('')}</div>`;}
+  else if(tab==='channels'){if(!userChannels.length){c.innerHTML=`<div class="empty"><p>No channels yet</p><button class="btn-red" style="margin-top:10px" onclick="openModal('channelModal')">Create Channel</button></div>`;return;}c.innerHTML=userChannels.map(ch=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer"><div style="width:44px;height:44px;border-radius:50%;background:${chColor(ch.id)};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700">${ch.name.charAt(0)}</div><div><div style="font-size:14px;font-weight:700">${esc(ch.name)}</div><div style="font-size:11px;color:var(--muted)">@${esc(ch.handle)} · ${fmt(ch.subscribers_count||0)} subscribers</div></div></div>`).join('');}
+}
+
+async function loadEarnings(){
+  if(!profile)return;
+  const{data}=await db.from('creator_earnings').select('amount_ngn,type').eq('user_id',profile.id);
+  const total=(data||[]).reduce((s,e)=>s+(e.amount_ngn||0),0);
+  const adP=(data||[]).filter(e=>e.type==='ad_revenue').length;
+  document.getElementById('earnAmt').textContent=total.toFixed(2);
+  document.getElementById('earnAds').textContent=fmt(adP);
+  const{data:vids}=await db.from('videos').select('views_count').eq('user_id',profile.id);
+  const tv=(vids||[]).reduce((s,v)=>s+(v.views_count||0),0);
+  document.getElementById('earnViews').textContent=fmt(tv);
+  document.getElementById('earnCPM').textContent=tv>0?'₦'+((total/tv)*1000).toFixed(0):'₦0';
+}
+
+async function saveProfile(){
+  const name=document.getElementById('editName').value.trim();const handle=document.getElementById('editHandle').value.trim().toLowerCase();const bio=document.getElementById('editBio').value.trim();
+  const{error}=await db.from('profiles').update({full_name:name,username:handle,bio}).eq('id',profile.id);
+  if(error){toast('Failed: '+error.message);return;}profile={...profile,full_name:name,username:handle,bio};closeModal('editModal');renderProfilePage();toast('✅ Profile updated!');
+}
+async function uploadAvatar(e){
+  const f=e.target.files[0];if(!f||!profile)return;
+  const path=`avatars/${profile.id}.${f.name.split('.').pop()}`;
+  const{error}=await db.storage.from('avatars').upload(path,f,{upsert:true});if(error){toast('Avatar upload failed');return;}
+  const{data}=db.storage.from('avatars').getPublicUrl(path);await db.from('profiles').update({avatar_url:data.publicUrl}).eq('id',profile.id);profile.avatar_url=data.publicUrl;renderProfilePage();toast('✅ Avatar updated!');
+}
+async function uploadBanner(e){
+  const f=e.target.files[0];if(!f||!profile)return;
+  const path=`banners/${profile.id}.${f.name.split('.').pop()}`;
+  const{error}=await db.storage.from('avatars').upload(path,f,{upsert:true});if(error){toast('Banner upload failed');return;}
+  const{data}=db.storage.from('avatars').getPublicUrl(path);await db.from('profiles').update({banner_url:data.publicUrl}).eq('id',profile.id);profile.banner_url=data.publicUrl;renderProfilePage();toast('✅ Banner updated!');
+}
+async function shareProfile(){const url=location.href+'?u='+(profile?.username||'');if(navigator.share){try{await navigator.share({title:'@'+profile?.username,url});return;}catch{}}await navigator.clipboard.writeText(url).catch(()=>{});toast('🔗 Profile link copied!');}
+
+// ═══ CHANNELS ═══
+async function loadUserChannels(){if(!profile)return;const{data}=await db.from('channels').select('*').eq('owner_id',profile.id);userChannels=data||[];const s=document.getElementById('upChannel');if(s){s.innerHTML='<option value="">Profile only</option>'+(userChannels.map(c=>`<option value="${c.id}">${c.name}</option>`).join(''));}}
+async function createChannel(){if(!profile)return;const name=document.getElementById('chName').value.trim();const handle=document.getElementById('chHandle').value.trim();if(!name||!handle){toast('Name and handle required');return;}const{error}=await db.from('channels').insert({owner_id:profile.id,name,handle,description:document.getElementById('chDesc').value.trim(),category:document.getElementById('chCat').value});if(error){toast('Error: '+(error.message.includes('unique')?'Handle taken':error.message));return;}toast('📺 Channel created!');closeModal('channelModal');loadUserChannels();document.getElementById('chName').value='';document.getElementById('chHandle').value='';document.getElementById('chDesc').value='';}
+
+// ═══ NOTIFICATIONS ═══
+function toggleNotif(){notifOpen=!notifOpen;document.getElementById('notifPanel').classList.toggle('open',notifOpen);if(notifOpen&&profile){document.getElementById('notifDot').classList.remove('on');db.from('notifications').update({is_read:true}).eq('user_id',profile.id);}}
+async function loadNotifications(){if(!profile)return;const{data}=await db.from('notifications').select('*,actor:actor_id(username)').eq('user_id',profile.id).order('created_at',{ascending:false}).limit(20);const unread=(data||[]).filter(n=>!n.is_read);if(unread.length)document.getElementById('notifDot').classList.add('on');const list=document.getElementById('notifList');if(!data?.length)return;list.innerHTML=data.map(n=>`<div class="n-item ${n.is_read?'':'unread'}"><div class="n-avatar" style="background:${chColor(n.actor_id||'x')}">${(n.actor?.username||'?').charAt(0).toUpperCase()}</div><div class="n-text"><strong>@${esc(n.actor?.username||'someone')}</strong> ${esc(n.message||'')}<div class="n-time">${ago(n.created_at)}</div></div></div>`).join('');}
+
+// ═══ MODALS ═══
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// ═══ UTILS ═══
+function fmt(n){n=parseInt(n)||0;if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toString();}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function chColor(id){const c=['#e53935','#8e24aa','#1e88e5','#00897b','#f4511e','#6d4c41','#546e7a'];let h=0;for(const x of String(id))h=(h*31+x.charCodeAt(0))&0xffffffff;return c[Math.abs(h)%c.length];}
+function ago(ts){const s=Math.floor((Date.now()-new Date(ts))/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+let toastT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2400);}
+</script></body></html>
